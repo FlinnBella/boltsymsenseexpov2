@@ -10,21 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { 
-  User, 
-  Settings, 
-  Bell, 
-  Heart, 
-  Shield, 
-  LogOut, 
-  Edit, 
-  Smartphone, 
-  Target, 
-  Calendar, 
-  Pill,
-  Plus,
-  Activity
-} from 'lucide-react-native';
+import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
 

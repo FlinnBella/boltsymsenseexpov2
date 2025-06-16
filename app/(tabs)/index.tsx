@@ -26,18 +26,21 @@ import HealthCard from '@/components/HealthCard';
 import MetricCard from '@/components/MetricCard';
 import CircularProgress from '@/components/CircularProgress';
 import ConnectionStatus from '@/components/ConnectionStatus';
-import { terraAPI } from '@/lib/terra';
+import WearableConnectionAlert from '@/components/WearableConnectionAlert';
 import { getUserPreferences } from '@/lib/storage';
+import { getTerraConnections, syncTerraData, getLatestBiometricData } from '@/lib/api/terra';
+import { supabase } from '@/lib/supabase';
+import { router } from 'expo-router';
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [healthData, setHealthData] = useState({
-    steps: 7495,
-    heartRate: 72,
-    calories: 582,
-    sleep: 7.5,
-    activeMinutes: 45,
-    distance: 3.5,
+    steps: 0,
+    heartRate: 0,
+    calories: 0,
+    sleep: 0,
+    activeMinutes: 0,
+    distance: 0,
   });
 
   const [goals, setGoals] = useState({
@@ -47,16 +50,46 @@ export default function DashboardScreen() {
     sleepHours: 8,
   });
 
+  const [user, setUser] = useState<any>(null);
+  const [hasWearableConnection, setHasWearableConnection] = useState(false);
+
   useEffect(() => {
+    loadUserData();
     loadHealthData();
     loadUserPreferences();
+    checkWearableConnections();
   }, []);
+
+  const loadUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+  };
 
   const loadHealthData = async () => {
     try {
-      // In a real app, fetch from Terra API
-      // const data = await terraAPI.getDailyData(userId, startDate, endDate);
-      // setHealthData(data);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Try to sync Terra data first
+      try {
+        await syncTerraData(user.id);
+      } catch (error) {
+        console.log('No Terra connections or sync failed:', error);
+      }
+
+      // Get latest biometric data from database
+      const latestData = await getLatestBiometricData(user.id);
+      
+      if (latestData) {
+        setHealthData({
+          steps: latestData.steps || 0,
+          heartRate: latestData.heart_rate_avg || 0,
+          calories: latestData.calories_burned || 0,
+          sleep: latestData.sleep_hours || 0,
+          activeMinutes: latestData.active_minutes || 0,
+          distance: latestData.distance_meters ? latestData.distance_meters / 1000 : 0, // Convert to km
+        });
+      }
     } catch (error) {
       console.error('Error loading health data:', error);
     }
@@ -71,14 +104,31 @@ export default function DashboardScreen() {
     }
   };
 
+  const checkWearableConnections = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const connections = await getTerraConnections(user.id);
+      setHasWearableConnection(connections.some(conn => conn.is_active));
+    } catch (error) {
+      console.error('Error checking wearable connections:', error);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHealthData();
+    await checkWearableConnections();
     setRefreshing(false);
   };
 
   const calculateProgress = (current: number, goal: number) => {
     return Math.round((current / goal) * 100);
+  };
+
+  const handleConnectWearable = () => {
+    router.push('/(tabs)/profile');
   };
 
   return (
@@ -92,11 +142,18 @@ export default function DashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Wearable Connection Alert */}
+        {!hasWearableConnection && (
+          <WearableConnectionAlert onConnect={handleConnectWearable} />
+        )}
+
         {/* Header */}
         <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
           <View>
             <Text style={styles.greeting}>Good Morning</Text>
-            <Text style={styles.userName}>John Doe</Text>
+            <Text style={styles.userName}>
+              {user?.user_metadata?.first_name || 'User'}
+            </Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>
             <Bell color="#6B7280" size={24} />
@@ -111,9 +168,14 @@ export default function DashboardScreen() {
               colors={['#3B82F6', '#1E40AF']}
               style={styles.summaryGradient}
             >
-              <Text style={styles.summaryText}>You're doing great!</Text>
+              <Text style={styles.summaryText}>
+                {hasWearableConnection ? "You're doing great!" : "Connect your wearable to get started!"}
+              </Text>
               <Text style={styles.summarySubtext}>
-                You've completed 75% of your daily goals
+                {hasWearableConnection 
+                  ? `You've completed ${Math.round((calculateProgress(healthData.steps, goals.steps) + calculateProgress(healthData.calories, goals.calories)) / 2)}% of your daily goals`
+                  : "Sync your fitness data to see personalized insights"
+                }
               </Text>
             </LinearGradient>
           </View>
@@ -166,17 +228,19 @@ export default function DashboardScreen() {
                         color="white"
                         backgroundColor="rgba(255, 255, 255, 0.3)"
                       >
-                        <Text style={styles.heartRateValue}>{healthData.heartRate}</Text>
+                        <Text style={styles.heartRateValue}>
+                          {healthData.heartRate || '--'}
+                        </Text>
                         <Text style={styles.heartRateUnit}>BPM</Text>
                       </CircularProgress>
                       
                       <View style={styles.heartRateStats}>
                         <View style={styles.heartRateStat}>
-                          <Text style={styles.heartRateStatValue}>65</Text>
+                          <Text style={styles.heartRateStatValue}>--</Text>
                           <Text style={styles.heartRateStatLabel}>Resting</Text>
                         </View>
                         <View style={styles.heartRateStat}>
-                          <Text style={styles.heartRateStatValue}>145</Text>
+                          <Text style={styles.heartRateStatValue}>--</Text>
                           <Text style={styles.heartRateStatLabel}>Max Today</Text>
                         </View>
                       </View>
@@ -195,7 +259,7 @@ export default function DashboardScreen() {
             <View style={styles.metricItem}>
               <MetricCard
                 title="Sleep"
-                value={healthData.sleep}
+                value={healthData.sleep.toFixed(1)}
                 unit="hours"
                 icon={Moon}
                 color="#8B5CF6"
@@ -217,7 +281,7 @@ export default function DashboardScreen() {
             <View style={styles.metricItem}>
               <MetricCard
                 title="Distance"
-                value={healthData.distance}
+                value={healthData.distance.toFixed(1)}
                 unit="km"
                 icon={Target}
                 color="#F59E0B"

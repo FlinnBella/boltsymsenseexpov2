@@ -8,7 +8,7 @@ interface HealthCardProps {
   title: string;
   value: string | number;
   unit?: string;
-  icon: LucideIcon;
+  icon: typeof LucideIcon;
   colors: string[];
   progress?: number;
   onPress?: () => void;
@@ -32,7 +32,7 @@ export default function HealthCard({
         onPress={onPress}
         activeOpacity={0.8}
       >
-        <LinearGradient colors={colors} style={styles.gradient}>
+        <LinearGradient colors={colors as [string, string, ...string[]]} style={styles.gradient}>
           <View style={styles.header}>
             <Icon color="white" size={24} />
             <Text style={styles.title}>{title}</Text>

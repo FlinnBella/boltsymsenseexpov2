@@ -7,7 +7,7 @@ interface MetricCardProps {
   title: string;
   value: string | number;
   unit?: string;
-  icon: LucideIcon;
+  icon: typeof LucideIcon;
   color: string;
   change?: number;
   onPress?: () => void;

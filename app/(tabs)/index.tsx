@@ -44,7 +44,7 @@ export default function DashboardScreen() {
     steps: 10000,
     calories: 2000,
     activeMinutes: 60,
-    sleep: 8,
+    sleepHours: 8,
   });
 
   useEffect(() => {

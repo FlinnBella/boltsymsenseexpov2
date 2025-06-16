@@ -14,12 +14,14 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -29,14 +31,24 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        Alert.alert('Login Failed', error.message);
-      } else {
+        console.error('Login error:', error.message);
+        return;
+      }
+  
+      if (data.user) {
+        // Store auth token/state
+        await AsyncStorage.setItem('authToken', data.session?.access_token || 'logged_in');
+        
+        // Update your auth context/state here
+        setIsAuthenticated(true); // If using state
+        
+        // Then navigate
         router.replace('/(tabs)');
       }
     } catch (error) {

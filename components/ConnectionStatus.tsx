@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, AppState } from 'react-native';
 import { Wifi, WifiOff } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
@@ -10,16 +10,14 @@ export default function ConnectionStatus() {
     // Simulate network status checking
     const checkConnection = () => {
       // In a real app, you'd use NetInfo or similar
-      setIsOnline(navigator.onLine);
+      setIsOnline(AppState.currentState === 'active');
     };
 
     checkConnection();
-    window.addEventListener('online', checkConnection);
-    window.addEventListener('offline', checkConnection);
+    const subscription = AppState.addEventListener('change', checkConnection);
 
     return () => {
-      window.removeEventListener('online', checkConnection);
-      window.removeEventListener('offline', checkConnection);
+      subscription.remove();
     };
   }, []);
 

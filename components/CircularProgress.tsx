@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
-  useEffect,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -33,7 +33,12 @@ export default function CircularProgress({
     animatedProgress.value = withTiming(progress, { duration: 1000 });
   }, [progress]);
 
-  const animatedStyle = useAnimatedStyle(() => {
+  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+
+// Need to figure out what is going on here!
+
+  const animatedStyle = useAnimatedProps(() => {
     const strokeDashoffset = circumference - (animatedProgress.value / 100) * circumference;
     return {
       strokeDashoffset,
@@ -51,7 +56,7 @@ export default function CircularProgress({
           strokeWidth={strokeWidth}
           fill="transparent"
         />
-        <Animated.Circle
+        <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -60,7 +65,7 @@ export default function CircularProgress({
           fill="transparent"
           strokeDasharray={circumference}
           strokeLinecap="round"
-          style={animatedStyle}
+          animatedProps={animatedStyle}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>

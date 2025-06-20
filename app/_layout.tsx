@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { router, Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
@@ -18,17 +18,23 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
+import  AuthProvider  from '@/app/contexts/AuthContext';
+import  UserProvider  from '@/app/contexts/UserContext';
 
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // this is to prevent navigation until app is ready 
+  setTimeout(() => {
+  }, 1);
+
+
   useFrameworkReady();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const router = useRouter();
-  const segments = useSegments();
+  //const router = useRouter();
+  //const segments = useSegments();
 
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Regular': Inter_400Regular,
@@ -51,47 +57,24 @@ export default function RootLayout() {
     registerForPushNotificationsAsync();
   }, []);
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  //useEffect(() => {
-  //  if (isAuthenticated === null) return; // Still loading
-//
-  //  const inAuthGroup = segments[0] === '(auth)';
-//
-  //  if (!isAuthenticated && !inAuthGroup) {
-  //    // User not authenticated, redirect to auth
-  //    router.replace('/(auth)/login');
-  //  } else if (isAuthenticated && inAuthGroup) {
-  //    // User authenticated, redirect to main app
-  //    router.replace('/(tabs)');
-  //  }
-  //}, [isAuthenticated, segments]);
-
-  const checkAuthStatus = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      setIsAuthenticated(!!token);
-    } catch (error) {
-      console.error('Error checking auth:', error);
-      setIsAuthenticated(false);
-    }
-  };
 
 
-  if (!fontsLoaded && !fontError) {
+  if (!fontsLoaded ? !fontError : null) {
     return null;
   }
 
   return (
-    <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
+    <AuthProvider>
+      <UserProvider>
+      <SafeAreaProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <StatusBar style="auto" />
-    </SafeAreaProvider>
+        <StatusBar style="auto" />
+      </SafeAreaProvider>
+      </UserProvider>
+    </AuthProvider>
   );
 }

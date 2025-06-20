@@ -15,16 +15,17 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
 
 import { supabase } from '@/lib/supabase';
-import { getUserPreferences, saveUserPreferences, UserPreferences } from '@/lib/storage';
-import { getUserProfile, getPatientProfile, getHealthGoals, updateHealthGoal, UserProfile, PatientProfile } from '@/lib/api/profile';
+import { getUserPreferences, saveUserPreferences, clearUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
+import { getUserProfile, getPatientProfile, getHealthGoals, updateHealthGoal, getUserPreferencesFromDB, updateUserPreferencesInDB, UserProfile, PatientProfile } from '@/lib/api/profile';
 import { getTerraConnections, terraAPI, saveTerraConnection } from '@/lib/api/terra';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import WearableConnectionAlert from '@/components/WearableConnectionAlert';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUserData } from '@/hooks/useUserData';
 
 export default function ProfileScreen() {
-  const [user, setUser] = useState<any>(null);
+  const { userData, setUserData } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -32,23 +33,29 @@ export default function ProfileScreen() {
   const [terraConnections, setTerraConnections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+ 
   useEffect(() => {
     loadUserData();
     loadPreferences();
     loadTerraConnections();
   }, []);
 
+  
+
   const loadUserData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      //const { data: { user } } = await supabase.auth.getUser();
+      console.log('User:', userData);
+      if (!userData) return;
 
-      setUser(user);
+      setUserData(userData);
       
-      const profile = await getUserProfile(user.id);
+      const profile = await getUserProfile(userData.id);
+      console.log('Profile:', profile);
       setUserProfile(profile);
 
-      const patientData = await getPatientProfile(user.id);
+      const patientData = await getPatientProfile(userData.id);
+      console.log('Patient Data:', patientData);
       setPatientProfile(patientData);
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -58,8 +65,32 @@ export default function ProfileScreen() {
   };
 
   const loadPreferences = async () => {
-    const prefs = await getUserPreferences();
-    setPreferences(prefs);
+    try {
+      if (!userData) return;
+
+      // First try to get from AsyncStorage (fast)
+      let prefs = await getUserPreferences();
+
+      // Check if we have default preferences (meaning nothing was cached)
+      const isDefaultPrefs = JSON.stringify(prefs) === JSON.stringify(defaultPreferences);
+      
+      if (isDefaultPrefs) {
+        try {
+          // If using defaults, try to get from DB
+          prefs = await getUserPreferencesFromDB(userData.id);
+          // Cache the DB preferences in AsyncStorage
+          await saveUserPreferences(prefs);
+        } catch (error) {
+          console.error('Error loading preferences from DB, using defaults:', error);
+          // Keep using defaults if DB fails
+        }
+      }
+
+      setPreferences(prefs);
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+      setPreferences(defaultPreferences);
+    }
   };
 
   const loadTerraConnections = async () => {
@@ -75,7 +106,7 @@ export default function ProfileScreen() {
   };
 
   const updateNotificationPreference = async (key: keyof UserPreferences['notifications'], value: boolean) => {
-    if (!preferences) return;
+    if (!preferences || !userData) return;
 
     const updatedPreferences = {
       ...preferences,
@@ -85,12 +116,25 @@ export default function ProfileScreen() {
       },
     };
 
-    setPreferences(updatedPreferences);
-    await saveUserPreferences(updatedPreferences);
+    try {
+      // Update local state immediately for better UX
+      setPreferences(updatedPreferences);
+      
+      // Update AsyncStorage
+      await saveUserPreferences(updatedPreferences);
+      
+      // Update database
+      await updateUserPreferencesInDB(userData.id, updatedPreferences);
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      // Revert on error
+      setPreferences(preferences);
+      Alert.alert('Error', 'Failed to update preference. Please try again.');
+    }
   };
 
   const handleConnectWearable = async () => {
-    if (!user) return;
+    if (!userData) return;
 
     Alert.alert(
       'Connect Wearable Device',
@@ -107,9 +151,9 @@ export default function ProfileScreen() {
 
   const connectProvider = async (provider: string) => {
     try {
-      if (!user) return;
+      if (!userData) return;
 
-      const referenceId = `${user.id}_${provider}_${Date.now()}`;
+      const referenceId = `${userData.id}_${provider}_${Date.now()}`;
       const authData = await terraAPI.generateAuthURL(provider, referenceId);
 
       if (authData.auth_url) {
@@ -120,7 +164,7 @@ export default function ProfileScreen() {
           setTimeout(async () => {
             try {
               await saveTerraConnection({
-                user_id: user.id,
+                user_id: userData.id,
                 terra_user_id: authData.user_id,
                 provider,
                 reference_id: referenceId,
@@ -176,9 +220,19 @@ export default function ProfileScreen() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await supabase.auth.signOut();
-            await AsyncStorage.removeItem('authToken');
-            router.replace('/(auth)/login');
+            try {
+              // Clear preferences from AsyncStorage
+              //await clearUserPreferences();
+              // Sign out from Supabase
+              await supabase.auth.signOut();
+              // Clear auth token
+              await AsyncStorage.removeItem('authToken');
+              // Navigate to login
+              router.replace('/(auth)/login');
+            } catch (error) {
+              console.error('Error signing out:', error);
+              Alert.alert('Error', 'Failed to sign out completely. Please try again.');
+            }
           },
         },
       ]
@@ -209,19 +263,19 @@ export default function ProfileScreen() {
   }) => (
     <TouchableOpacity style={styles.profileItem} onPress={onPress}>
       <View style={styles.profileItemLeft}>
-        <View style={styles.profileItemIcon}>
+        <View style={styles.profileItemIcon}> 
           <Icon color="#6B7280" size={20} />
         </View>
         <View>
           <Text style={styles.profileItemTitle}>{title}</Text>
-          {subtitle && <Text style={styles.profileItemSubtitle}>{subtitle}</Text>}
+          {subtitle ? <Text style={styles.profileItemSubtitle}>{subtitle}</Text> : null}
         </View>
       </View>
-      {rightElement}
+        {rightElement}
     </TouchableOpacity>
   );
 
-  if (loading || !user || !userProfile || !preferences) {
+  if (loading || !userData || !userProfile || !preferences) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -236,7 +290,7 @@ export default function ProfileScreen() {
       <WearableConnectionAlert onConnect={handleConnectWearable} />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        
         <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
           <LinearGradient colors={['#3B82F6', '#1E40AF']} style={styles.headerGradient}>
             <View style={styles.profileHeader}>
@@ -259,7 +313,7 @@ export default function ProfileScreen() {
           </LinearGradient>
         </Animated.View>
 
-        {/* Health Goals */}
+        
         <Animated.View entering={FadeInUp.delay(200).duration(600)}>
           <ProfileSection title="Health Goals">
             <ProfileItem
@@ -283,7 +337,7 @@ export default function ProfileScreen() {
           </ProfileSection>
         </Animated.View>
 
-        {/* Connected Devices */}
+        
         <Animated.View entering={FadeInUp.delay(400).duration(600)}>
           <ProfileSection title="Connected Devices">
             {terraConnections.length > 0 ? (
@@ -307,7 +361,7 @@ export default function ProfileScreen() {
           </ProfileSection>
         </Animated.View>
 
-        {/* Notifications */}
+        
         <Animated.View entering={FadeInUp.delay(600).duration(600)}>
           <ProfileSection title="Notifications">
             <ProfileItem
@@ -365,14 +419,14 @@ export default function ProfileScreen() {
           </ProfileSection>
         </Animated.View>
 
-        {/* Settings */}
+        
         <Animated.View entering={FadeInUp.delay(800).duration(600)}>
           <ProfileSection title="Settings">
             <ProfileItem
               icon={Settings}
               title="App Settings"
-              subtitle="Customize your experience"
-              onPress={() => {}}
+              subtitle="Customize your profile"
+              onPress={() => {setShowEditModal(true)}}
             />
             <ProfileItem
               icon={Shield}
@@ -389,7 +443,7 @@ export default function ProfileScreen() {
           </ProfileSection>
         </Animated.View>
 
-        {/* Medical Disclaimer */}
+        
         <Animated.View entering={FadeInUp.delay(1000).duration(600)} style={styles.disclaimer}>
           <Text style={styles.disclaimerTitle}>Medical Disclaimer</Text>
           <Text style={styles.disclaimerText}>

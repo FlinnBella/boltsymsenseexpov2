@@ -16,12 +16,19 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+//TODO: useUser looks at the user's cache to login to the app. Either get rid of the login
+//with a simple look at the user's cache, or use the login component. 
+//Need functionality to check and then skip. 
+
+//hooks
+import { useUser } from '@/hooks/useUser';
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, signIn, signOut, signUp, setIsAuthenticated } = useUser();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -31,10 +38,31 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await signIn(email, password);
+      //console.log(data.user);
+      if (data.user != null) {
+        // Fetch the user's profile from your "profiles" table
+       const { data: profile, error: profileError } = await supabase
+       .from('users')
+       .select('phone')
+       .eq('id', data.user.id)
+       .single();
+       console.log(profile);
+
+        if (profileError) {
+          // handle error
+        }
+        //TODO: THIS IS DEPENDENT ON THE PREVIOUS CACHING PROBLEM
+        // else if (!profile.phone) {
+        //  // User does not have a phone number
+        //  router.replace('/(auth)/info');
+        //  return;
+        //}
+        //console.log(profile?.phone);
+        setLoading(false);
+        router.replace('/(tabs)');
+        return;
+      }
 
       if (error) {
         console.error('Login error:', error.message);
@@ -107,7 +135,7 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[styles.button, loading ? styles.buttonDisabled : null]}
               onPress={handleLogin}
               disabled={loading}
             >

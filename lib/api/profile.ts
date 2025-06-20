@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { UserPreferences, defaultPreferences } from '../storage';
 
 export interface UserProfile {
   id: string;
@@ -170,6 +171,150 @@ export async function logMedication(userId: string, medicationName: string, dosa
 
   if (error) {
     console.error('Error logging medication:', error);
+    throw error;
+  }
+}
+
+export async function getUserPreferencesFromDB(userId: string): Promise<UserPreferences> {
+  const { data, error } = await supabase
+    .from('users')
+    .select(`
+      dashboard_layout,
+      health_goal_steps,
+      health_goal_calories,
+      health_goal_active_minutes,
+      health_goal_sleep_hours,
+      notification_achievements,
+      notification_health_alerts,
+      notification_medications,
+      notification_appointments
+    `)
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching user preferences from DB:', error);
+    throw error;
+  }
+
+  if (!data) {
+    return defaultPreferences;
+  }
+
+  // Convert DB format to app format
+  return {
+    dashboardLayout: data.dashboard_layout || defaultPreferences.dashboardLayout,
+    healthGoals: {
+      steps: data.health_goal_steps || defaultPreferences.healthGoals.steps,
+      calories: data.health_goal_calories || defaultPreferences.healthGoals.calories,
+      activeMinutes: data.health_goal_active_minutes || defaultPreferences.healthGoals.activeMinutes,
+      sleepHours: data.health_goal_sleep_hours || defaultPreferences.healthGoals.sleepHours
+    },
+    notifications: {
+      achievements: data.notification_achievements ?? defaultPreferences.notifications.achievements,
+      healthAlerts: data.notification_health_alerts ?? defaultPreferences.notifications.healthAlerts,
+      medications: data.notification_medications ?? defaultPreferences.notifications.medications,
+      appointments: data.notification_appointments ?? defaultPreferences.notifications.appointments
+    }
+  };
+}
+
+export async function updateUserPreferencesInDB(userId: string, preferences: UserPreferences): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({
+      dashboard_layout: preferences.dashboardLayout,
+      health_goal_steps: preferences.healthGoals.steps,
+      health_goal_calories: preferences.healthGoals.calories,
+      health_goal_active_minutes: preferences.healthGoals.activeMinutes,
+      health_goal_sleep_hours: preferences.healthGoals.sleepHours,
+      notification_achievements: preferences.notifications.achievements,
+      notification_health_alerts: preferences.notifications.healthAlerts,
+      notification_medications: preferences.notifications.medications,
+      notification_appointments: preferences.notifications.appointments
+    })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Error updating user preferences in DB:', error);
+    throw error;
+  }
+}
+
+export interface CachedHealthData {
+  steps: number;
+  heartRate: number | null;
+  calories: number;
+  sleep: number | null;
+  activeMinutes: number;
+  distance: number; // in meters
+  weight: number | null;
+  bloodPressureSystolic: number | null;
+  bloodPressureDiastolic: number | null;
+  lastUpdated: string | null;
+}
+
+export async function getCachedHealthData(userId: string): Promise<CachedHealthData | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select(`
+      current_steps,
+      current_heart_rate,
+      current_calories,
+      current_sleep_hours,
+      current_active_minutes,
+      current_distance_meters,
+      current_weight_kg,
+      current_blood_pressure_systolic,
+      current_blood_pressure_diastolic,
+      health_data_last_updated
+    `)
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching cached health data:', error);
+    throw error;
+  }
+
+  if (!data) return null;
+
+  return {
+    steps: data.current_steps || 0,
+    heartRate: data.current_heart_rate,
+    calories: data.current_calories || 0,
+    sleep: data.current_sleep_hours,
+    activeMinutes: data.current_active_minutes || 0,
+    distance: data.current_distance_meters || 0,
+    weight: data.current_weight_kg,
+    bloodPressureSystolic: data.current_blood_pressure_systolic,
+    bloodPressureDiastolic: data.current_blood_pressure_diastolic,
+    lastUpdated: data.health_data_last_updated
+  };
+}
+
+export async function updateCachedHealthData(userId: string, healthData: Partial<CachedHealthData>): Promise<void> {
+  const updateData: any = {
+    health_data_last_updated: new Date().toISOString()
+  };
+
+  if (healthData.steps !== undefined) updateData.current_steps = healthData.steps;
+  if (healthData.heartRate !== undefined) updateData.current_heart_rate = healthData.heartRate;
+  if (healthData.calories !== undefined) updateData.current_calories = healthData.calories;
+  if (healthData.sleep !== undefined) updateData.current_sleep_hours = healthData.sleep;
+  if (healthData.activeMinutes !== undefined) updateData.current_active_minutes = healthData.activeMinutes;
+  if (healthData.distance !== undefined) updateData.current_distance_meters = healthData.distance;
+  if (healthData.weight !== undefined) updateData.current_weight_kg = healthData.weight;
+  if (healthData.bloodPressureSystolic !== undefined) updateData.current_blood_pressure_systolic = healthData.bloodPressureSystolic;
+  if (healthData.bloodPressureDiastolic !== undefined) updateData.current_blood_pressure_diastolic = healthData.bloodPressureDiastolic;
+
+  const { error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Error updating cached health data:', error);
     throw error;
   }
 }

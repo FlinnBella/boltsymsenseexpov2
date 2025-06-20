@@ -40,17 +40,17 @@ export default function MetricCard({
         
         <Text style={styles.value}>
           {value}
-          {unit && <Text style={styles.unit}> {unit}</Text>}
+          {unit ? <Text style={styles.unit}> {unit}</Text> : null}
         </Text>
         
-        {change !== undefined && (
+        {change !== undefined ? (
           <Text style={[
             styles.change,
             { color: change >= 0 ? '#10B981' : '#EF4444' }
           ]}>
             {change >= 0 ? '+' : ''}{change}%
           </Text>
-        )}
+        ) : null}
       </TouchableOpacity>
     </Animated.View>
   );

@@ -27,20 +27,22 @@ import MetricCard from '@/components/MetricCard';
 import CircularProgress from '@/components/CircularProgress';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import WearableConnectionAlert from '@/components/WearableConnectionAlert';
-import { getUserPreferences } from '@/lib/storage';
+import { getUserPreferences, saveUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
+import { getUserPreferencesFromDB, updateUserPreferencesInDB, getCachedHealthData, updateCachedHealthData } from '@/lib/api/profile';
 import { getTerraConnections, syncTerraData, getLatestBiometricData } from '@/lib/api/terra';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
+import { useUserData } from '@/hooks/useUserData';
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [healthData, setHealthData] = useState({
-    steps: 0,
-    heartRate: 0,
-    calories: 0,
-    sleep: 0,
-    activeMinutes: 0,
-    distance: 0,
+    steps: 2453,
+    heartRate: 89,
+    calories: 1234,
+    sleep: 7.5,
+    activeMinutes: 120,
+    distance: 12.3,
   });
 
   const [goals, setGoals] = useState({
@@ -50,7 +52,8 @@ export default function DashboardScreen() {
     sleepHours: 8,
   });
 
-  const [user, setUser] = useState<any>(null);
+  const { userData, setUserData } = useUserData();
+  console.log('UserFromDashboard:', userData);
   const [hasWearableConnection, setHasWearableConnection] = useState(false);
 
   useEffect(() => {
@@ -61,34 +64,67 @@ export default function DashboardScreen() {
   }, []);
 
   const loadUserData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
+    try {
+      console.log('UserFromDashboard:', userData);
+      if (!userData) return;
+      // userData is already set from context, no need to set it again
+    } catch (error) {
+      console.error('Error in loadUserData:', error);
+    }
   };
 
   const loadHealthData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userData) return;
 
-      // Try to sync Terra data first
+      // First, load cached data for immediate display
       try {
-        await syncTerraData(user.id);
+        const cachedData = await getCachedHealthData(userData.id);
+        if (cachedData) {
+          //setHealthData({
+          //  steps: cachedData.steps,
+          //  heartRate: cachedData.heartRate || 0,
+          //  calories: cachedData.calories,
+          //  sleep: cachedData.sleep || 0,
+          //  activeMinutes: cachedData.activeMinutes,
+          //  distance: cachedData.distance / 1000, // Convert to km
+          //});
+        }
       } catch (error) {
-        console.log('No Terra connections or sync failed:', error);
+        console.log('No cached health data available:', error);
       }
 
-      // Get latest biometric data from database
-      const latestData = await getLatestBiometricData(user.id);
-      
-      if (latestData) {
-        setHealthData({
-          steps: latestData.steps || 0,
-          heartRate: latestData.heart_rate_avg || 0,
-          calories: latestData.calories_burned || 0,
-          sleep: latestData.sleep_hours || 0,
-          activeMinutes: latestData.active_minutes || 0,
-          distance: latestData.distance_meters ? latestData.distance_meters / 1000 : 0, // Convert to km
-        });
+      // Then try to sync Terra data and update cache
+      try {
+        await syncTerraData(userData.id);
+        
+        // Get latest biometric data from database
+        const latestData = await getLatestBiometricData(userData.id);
+        
+        if (latestData) {
+          const newHealthData = {
+            steps: latestData.steps || 0,
+            heartRate: latestData.heart_rate_avg || 0,
+            calories: latestData.calories_burned || 0,
+            sleep: latestData.sleep_hours || 0,
+            activeMinutes: latestData.active_minutes || 0,
+            distance: latestData.distance_meters ? latestData.distance_meters / 1000 : 0, // Convert to km
+          };
+
+          //setHealthData(newHealthData);
+
+          // Update cache with latest data
+          await updateCachedHealthData(userData.id, {
+            steps: latestData.steps || 0,
+            heartRate: latestData.heart_rate_avg,
+            calories: latestData.calories_burned || 0,
+            sleep: latestData.sleep_hours,
+            activeMinutes: latestData.active_minutes || 0,
+            distance: latestData.distance_meters || 0,
+          });
+        }
+      } catch (error) {
+        console.log('Terra sync failed, using cached/existing data:', error);
       }
     } catch (error) {
       console.error('Error loading health data:', error);
@@ -97,10 +133,30 @@ export default function DashboardScreen() {
 
   const loadUserPreferences = async () => {
     try {
-      const preferences = await getUserPreferences();
-      setGoals(preferences.healthGoals);
+      if (!userData) return;
+
+      // First try to get from AsyncStorage (fast)
+      let prefs = await getUserPreferences();
+
+      // Check if we have default preferences (meaning nothing was cached)
+      const isDefaultPrefs = JSON.stringify(prefs) === JSON.stringify(defaultPreferences);
+      
+      if (isDefaultPrefs) {
+        try {
+          // If using defaults, try to get from DB
+          prefs = await getUserPreferencesFromDB(userData.id);
+          // Cache the DB preferences in AsyncStorage
+          await saveUserPreferences(prefs);
+        } catch (error) {
+          console.error('Error loading preferences from DB, using defaults:', error);
+          // Keep using defaults if DB fails
+        }
+      }
+
+      setGoals(prefs.healthGoals);
     } catch (error) {
       console.error('Error loading preferences:', error);
+      setGoals(defaultPreferences.healthGoals);
     }
   };
 
@@ -143,16 +199,16 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Wearable Connection Alert */}
-        {!hasWearableConnection && (
+        {!hasWearableConnection ? (
           <WearableConnectionAlert onConnect={handleConnectWearable} />
-        )}
+        ) : null}
 
         {/* Header */}
         <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
           <View>
             <Text style={styles.greeting}>Good Morning</Text>
             <Text style={styles.userName}>
-              {user?.user_metadata?.first_name || 'User'}
+              {userData?.first_name || 'User'}
             </Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>

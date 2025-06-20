@@ -41,7 +41,7 @@ export default function HealthCard({
           <View style={styles.content}>
             <Text style={styles.value}>
               {value}
-              {unit && <Text style={styles.unit}> {unit}</Text>}
+              {unit ? <Text style={styles.unit}> {unit}</Text> : null}
             </Text>
             
             {progress !== undefined && (

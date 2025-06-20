@@ -17,7 +17,7 @@
             "description": "Set up a monorepo structure with appropriate configuration for cross-platform development using either React Native or Flutter for mobile and React for web applications.",
             "dependencies": [],
             "details": "Create a new repository with a monorepo structure using a tool like Nx, Lerna, or Yarn Workspaces. Configure the project with TypeScript support. Set up shared code directories for common business logic, UI components, and utilities. Create platform-specific directories for iOS, Android, and Web. Initialize the chosen framework (React Native or Flutter) and configure necessary build tools. Add essential dependencies and create a basic 'Hello World' application that runs on all platforms.",
-            "status": "pending",
+            "status": "complete",
             "testStrategy": "Verify that the basic application builds and runs on iOS simulator, Android emulator, and web browser. Set up Jest for unit testing and ensure test scripts work correctly."
           },
           {
@@ -26,7 +26,7 @@
             "description": "Set up cloud resources on the selected provider (AWS/Azure/GCP) to support backend services for the application.",
             "dependencies": [],
             "details": "Select and provision appropriate cloud services for backend needs. Set up API Gateway or equivalent service for handling API requests. Configure database resources (e.g., DynamoDB, Cosmos DB, or Firestore). Set up authentication services. Create storage resources for application assets. Configure networking and security settings including VPC/VNET, security groups, and IAM policies. Use Infrastructure as Code (IaC) tools like Terraform, AWS CDK, or Pulumi to define all resources.",
-            "status": "pending",
+            "status": "complete",
             "testStrategy": "Verify connectivity to all cloud resources. Run basic CRUD operations against the database. Test authentication flows. Validate that storage operations work correctly."
           },
           {
@@ -79,7 +79,7 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "in progress",
         "subtasks": [
           {
             "id": 1,
@@ -87,7 +87,7 @@
             "description": "Design and implement the database schema for user authentication, including tables for users, roles, permissions, and sessions",
             "dependencies": [],
             "details": "Create database models for User, Role, and Permission entities. User model should include fields for email, password (hashed), role, account status, and profile information. Implement proper relationships between models. Set up encryption for sensitive data and ensure password hashing using bcrypt with appropriate salt rounds.",
-            "status": "pending",
+            "status": "CONTINOUS!",
             "testStrategy": "Write unit tests for model validation, relationship integrity, and encryption/hashing functionality. Test database migrations for both creation and rollback scenarios."
           },
           {
@@ -109,7 +109,7 @@
               2
             ],
             "details": "Implement REST API endpoints for user registration with email verification, login with rate limiting, password reset via email, and account recovery options. Add input validation and sanitization for all user inputs. Implement email service integration for sending verification and reset emails. Create proper error handling with informative but secure error messages.",
-            "status": "pending",
+            "status": "version .1",
             "testStrategy": "Test API endpoints with valid and invalid inputs. Verify email sending functionality with test doubles. Test rate limiting and security features. Create end-to-end tests for complete registration and login flows."
           },
           {

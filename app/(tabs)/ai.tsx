@@ -8,15 +8,29 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Bot, User } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
+import { useUserData } from '@/hooks/useUserData';
 
-import { sendMessageToAI, AIMessage } from '@/lib/ai';
+//TODO: Use frontend to update the chat message for user. Let the ai have a loading bubbles 
+//while waiting for response. 
+
+
+// Webhook URL for AI communication
+const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
 
 export default function AIAssistantScreen() {
-  const [messages, setMessages] = useState<AIMessage[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       role: 'assistant',
@@ -27,6 +41,7 @@ export default function AIAssistantScreen() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const { userData } = useUserData();
 
   useEffect(() => {
     scrollToBottom();
@@ -38,10 +53,58 @@ export default function AIAssistantScreen() {
     }, 100);
   };
 
+  const sendMessageToWebhook = async (message: string): Promise<string> => {
+    try {
+      console.log('Sending message:', message);
+      const response = await fetch(`${WEBHOOK_URL}?message=${encodeURIComponent(message)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          timestamp: new Date().toISOString(),
+          zipCode: userData.zip_code,
+        }),
+      });
+
+      //console.log('Response status:', response.status);
+      //console.log('Response headers:', response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('Error response body:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      // Get the response text first to debug what we're receiving
+      console.log(response.json);
+      const data = await response.json();
+      console.log('Raw response body:', data);
+
+      // Check if the response is empty
+      if (!data) {
+        throw new Error('Empty response from webhook');
+      }
+      const dataoutput = data[0].text || data[0].filterResponse
+      // Handle the actual format: [{"text": "response"}]
+      if (data.length > 0) {
+        return dataoutput;
+      } 
+      else {
+        console.error('Unexpected response format:', data);
+        throw new Error('Invalid response format from webhook');
+      }
+    } catch (error) {
+      console.error('Error sending message to webhook:', error);
+      throw new Error('Unable to connect to AI assistant. Please try again later.');
+    }
+  };
+
   const sendMessage = async () => {
     if (!inputText.trim() || loading) return;
 
-    const userMessage: AIMessage = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: inputText.trim(),
@@ -53,35 +116,31 @@ export default function AIAssistantScreen() {
     setLoading(true);
 
     try {
-      const response = await sendMessageToAI(userMessage.content);
+      const responseContent = await sendMessageToWebhook(userMessage.content);
       
-      const assistantMessage: AIMessage = {
+      const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response.message,
+        content: responseContent,
         timestamp: new Date(),
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
-      // Add disclaimer if provided
-      if (response.disclaimer) {
-        const disclaimerMessage: AIMessage = {
-          id: (Date.now() + 2).toString(),
-          role: 'assistant',
-          content: `⚠️ Medical Disclaimer: ${response.disclaimer}`,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, disclaimerMessage]);
-      }
     } catch (error) {
-      const errorMessage: AIMessage = {
+      const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: 'I apologize, but I\'m having trouble connecting right now. Please try again later or consult with a healthcare professional for urgent medical concerns.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
+      
+      // Optionally show an alert for connection errors
+      Alert.alert(
+        'Connection Error',
+        'Unable to reach the AI assistant. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
@@ -91,9 +150,8 @@ export default function AIAssistantScreen() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const renderMessage = (message: AIMessage, index: number) => {
+  const renderMessage = (message: ChatMessage, index: number) => {
     const isUser = message.role === 'user';
-    const isDisclaimer = message.content.startsWith('⚠️ Medical Disclaimer:');
 
     return (
       <Animated.View
@@ -107,19 +165,17 @@ export default function AIAssistantScreen() {
         <View style={[
           styles.messageBubble,
           isUser ? styles.userMessage : styles.assistantMessage,
-          isDisclaimer && styles.disclaimerMessage,
         ]}>
-          {!isUser && (
+          {!isUser ? (
             <View style={styles.messageHeader}>
               <Bot color="#3B82F6" size={16} />
               <Text style={styles.messageRole}>AI Assistant</Text>
             </View>
-          )}
+          ) : null}
           
           <Text style={[
             styles.messageText,
             isUser ? styles.userMessageText : styles.assistantMessageText,
-            isDisclaimer && styles.disclaimerText,
           ]}>
             {message.content}
           </Text>
@@ -154,7 +210,7 @@ export default function AIAssistantScreen() {
         >
           {messages.map((message, index) => renderMessage(message, index))}
           
-          {loading && (
+          {loading ? (
             <Animated.View
               entering={FadeInRight.duration(400)}
               style={[styles.messageContainer, styles.assistantMessageContainer]}
@@ -171,7 +227,7 @@ export default function AIAssistantScreen() {
                 </View>
               </View>
             </Animated.View>
-          )}
+          ) : null}
         </ScrollView>
 
         <View style={styles.inputContainer}>
@@ -183,9 +239,11 @@ export default function AIAssistantScreen() {
             onChangeText={setInputText}
             multiline
             maxLength={500}
+            onSubmitEditing={sendMessage}
+            blurOnSubmit={false}
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!inputText.trim() || loading) && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!inputText.trim() || loading) ? styles.sendButtonDisabled : null]}
             onPress={sendMessage}
             disabled={!inputText.trim() || loading}
           >
@@ -251,11 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-  },
-  disclaimerMessage: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#F59E0B',
-  },
+  }, 
   messageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -277,10 +331,6 @@ const styles = StyleSheet.create({
   },
   assistantMessageText: {
     color: '#1F2937',
-  },
-  disclaimerText: {
-    color: '#92400E',
-    fontSize: 14,
   },
   messageTime: {
     fontSize: 12,

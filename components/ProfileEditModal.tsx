@@ -14,6 +14,10 @@ import {
 import { X, Save } from 'lucide-react-native';
 import { UserProfile, PatientProfile, updateUserProfile, createOrUpdatePatientProfile } from '@/lib/api/profile';
 
+
+// TODO:  FIGURE THE SLOP OUT LATER
+
+
 interface ProfileEditModalProps {
   visible: boolean;
   onClose: () => void;
@@ -21,6 +25,8 @@ interface ProfileEditModalProps {
   patientProfile: PatientProfile | null;
   onSave: () => void;
 }
+
+
 
 export default function ProfileEditModal({
   visible,
@@ -155,7 +161,7 @@ export default function ProfileEditModal({
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
-        style={[styles.fieldInput, multiline && styles.multilineInput]}
+        style={[styles.fieldInput, multiline ? styles.multilineInput : null]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

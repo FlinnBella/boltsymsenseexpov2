@@ -50,6 +50,14 @@ export async function getUserPreferences(): Promise<UserPreferences> {
   }
 }
 
+export async function clearUserPreferences(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem('userPreferences');
+  } catch (error) {
+    console.error('Error clearing preferences:', error);
+  }
+}
+
 export async function saveHealthData(data: any) {
   try {
     const existing = await AsyncStorage.getItem('healthData');

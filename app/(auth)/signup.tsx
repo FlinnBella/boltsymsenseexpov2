@@ -9,12 +9,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, User, Eye, EyeOff, MapPin, ChevronDown } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import VerifiedModal from '@/components/Modal/VerifiedModal';
+import { stateOptions } from '@/app/etc/SetFormInfo';
 
 export default function SignupScreen() {
   const [formData, setFormData] = useState({
@@ -23,15 +27,28 @@ export default function SignupScreen() {
     email: '',
     password: '',
     confirmPassword: '',
+    zipCode: '',
+    city: '',
+    state: '',
+    address: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showVerifiedModal, setShowVerifiedModal] = useState(false);
+  const [activeStep, setActiveStep] = useState(1);
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
 
   const handleSignup = async () => {
-    const { firstName, lastName, email, password, confirmPassword } = formData;
+    const { firstName, lastName, email, password, confirmPassword, zipCode, city, state, address } = formData;
+    console.log(formData);
 
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!zipCode || !city || !state || !address) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -51,13 +68,10 @@ export default function SignupScreen() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          },
-        },
       });
+      setLoading(false);
+      // TODO: Replace this with a modal!
+      router.replace('/(auth)/info');
 
       if (error) {
         Alert.alert('Signup Failed', error.message);
@@ -86,7 +100,7 @@ export default function SignupScreen() {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Animated.View entering={FadeInUp.duration(800)} style={styles.content}>
+          {activeStep === 1 ? <Animated.View entering={FadeInUp.duration(800)} style={styles.content}>
             <View style={styles.header}>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>Join your health journey today</Text>
@@ -176,7 +190,97 @@ export default function SignupScreen() {
 
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleSignup}
+                onPress={() => {
+                  if (formData.firstName && formData.lastName && formData.email && formData.password && formData.confirmPassword) {
+                    setActiveStep(2);
+                  } else {
+                    Alert.alert('Error', 'Please fill in all fields');
+                  }
+                }}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>
+                  {loading ? 'Next' : 'Next'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.linkButton}
+                onPress={() => {
+                  router.push('/(auth)/login');
+                }}
+              >
+                <Text style={styles.linkText}>
+                  Already have an account? <Text style={styles.linkTextBold}>Sign In</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View> : null}
+          {activeStep === 2 ? <Animated.View entering={FadeInUp.duration(800)} style={styles.content}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Location</Text>
+              <Text style={styles.subtitle}>Enter your location to get started</Text>
+            </View>
+
+            <View style={styles.form}>
+              <View style={styles.row}>
+                <View style={[styles.inputContainer, styles.halfWidth]}>
+                  {/* <User color="#6B7280" size={20} style={styles.inputIcon} /> */}
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Zip Code"
+                    placeholderTextColor="#9CA3AF"
+                    value={formData.zipCode}
+                    onChangeText={(value) => updateFormData('zipCode', value)}
+                  />
+                </View>
+
+                <View style={[styles.inputContainer, styles.halfWidth]}>
+                  {/*<User color="#6B7280" size={20} style={styles.inputIcon} />*/}
+                  <TextInput
+                    style={styles.input}
+                    placeholder="City"
+                    placeholderTextColor="#9CA3AF"
+                    value={formData.city}
+                    onChangeText={(value) => updateFormData('city', value)}
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity 
+                style={styles.inputContainer}
+                onPress={() => setShowStateDropdown(true)}
+              >
+                <MapPin color="#6B7280" size={20} style={styles.inputIcon} />
+                <Text style={[styles.input, styles.dropdownText, !formData.state ? styles.placeholderText : null]}>
+                  {formData.state || 'Select State'}
+                </Text>
+                <ChevronDown color="#6B7280" size={20} style={styles.dropdownIcon} />
+              </TouchableOpacity>
+
+              <View style={styles.inputContainer}>
+                <MapPin color="#6B7280" size={20} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Address"
+                  placeholderTextColor="#9CA3AF"
+                  value={formData.address}
+                  onChangeText={(value) => updateFormData('address', value)}
+                  keyboardType="default"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={() => {
+                  if (formData.zipCode && formData.city && formData.state && formData.address) {
+                    setShowVerifiedModal(true);
+                    handleSignup();
+                  } else {
+                    Alert.alert('Error', 'Please fill in all fields');
+                  }
+                }}
                 disabled={loading}
               >
                 <Text style={styles.buttonText}>
@@ -186,16 +290,67 @@ export default function SignupScreen() {
 
               <TouchableOpacity
                 style={styles.linkButton}
-                onPress={() => router.push('/(auth)/login')}
+                onPress={() => {
+                  router.push('/(auth)/login');
+                }}
               >
                 <Text style={styles.linkText}>
                   Already have an account? <Text style={styles.linkTextBold}>Sign In</Text>
                 </Text>
               </TouchableOpacity>
             </View>
-          </Animated.View>
+          </Animated.View> : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      <VerifiedModal visible={showVerifiedModal} onClose={() => {
+        setShowVerifiedModal(false);
+        router.push('/(auth)/login');
+      }} />
+      
+      {/* State Dropdown Modal */}
+      <Modal
+        visible={showStateDropdown}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowStateDropdown(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select State</Text>
+              <TouchableOpacity
+                onPress={() => setShowStateDropdown(false)}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={stateOptions}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.dropdownItem,
+                    formData.state === item ? styles.selectedItem : null
+                  ]}
+                  onPress={() => {
+                    updateFormData('state', item);
+                    setShowStateDropdown(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.dropdownItemText,
+                    formData.state === item ? styles.selectedItemText : null
+                  ]}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -295,5 +450,68 @@ const styles = StyleSheet.create({
   linkTextBold: {
     fontFamily: 'Inter-SemiBold',
     color: 'white',
+  },
+  dropdownText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#1F2937',
+  },
+  placeholderText: {
+    color: '#9CA3AF',
+  },
+  dropdownIcon: {
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+  },
+  modalCloseButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  modalCloseText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#3B82F6',
+  },
+  dropdownItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  selectedItem: {
+    backgroundColor: '#EBF4FF',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#1F2937',
+  },
+  selectedItemText: {
+    color: '#3B82F6',
+    fontFamily: 'Inter-SemiBold',
   },
 });

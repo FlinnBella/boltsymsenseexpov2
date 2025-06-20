@@ -18,7 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { getUserPreferences, saveUserPreferences, clearUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
 import { getUserProfile, getPatientProfile, getHealthGoals, updateHealthGoal, getUserPreferencesFromDB, updateUserPreferencesInDB, UserProfile, PatientProfile } from '@/lib/api/profile';
 import { getTerraConnections, terraAPI, saveTerraConnection } from '@/lib/api/terra';
-import ProfileEditModal from '@/components/ProfileEditModal';
+import ProfileEditModal from '@/components/Modal/ProfileEditModal';
 import WearableConnectionAlert from '@/components/WearableConnectionAlert';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';

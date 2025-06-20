@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Bot, User } from 'lucide-react-native';
+import { Send, Bot, User, Phone, Mail, MapPin } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useUserData } from '@/hooks/useUserData';
 
@@ -29,6 +29,17 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+export interface DoctorList {
+  doctor_name: string[];
+  doctor_specialty: string[];
+  doctor_address: string[];
+  doctor_phone: string[];
+  doctor_email: string[];
+  //doctor_website: string;
+  //doctor_rating: number;
+  //doctor_reviews: number;
+}
+
 export default function AIAssistantScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -40,6 +51,7 @@ export default function AIAssistantScreen() {
   ]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [doctorLists, setDoctorLists] = useState<DoctorList[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
   const { userData } = useUserData();
 
@@ -148,6 +160,64 @@ export default function AIAssistantScreen() {
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderDoctorList = (doctorList: DoctorList) => {
+    // Assuming all arrays have the same length, use the first array's length
+    const doctorCount = doctorList.doctor_name.length;
+    
+    return (
+      <Animated.View
+        entering={FadeInRight.delay(1000).duration(400)}
+        style={[
+          styles.messageContainer,
+          styles.assistantMessageContainer,
+        ]}
+      >
+        <View style={styles.doctorListContainer}>
+          <Text style={styles.doctorListTitle}>Recommended Doctors Near You</Text>
+          {Array.from({ length: doctorCount }, (_, index) => (
+            <View key={index} style={styles.doctorCard}>
+              <View style={styles.doctorHeader}>
+                <Text style={styles.doctorName}>
+                  {doctorList.doctor_name[index] || 'N/A'}
+                </Text>
+                <Text style={styles.doctorSpecialty}>
+                  {doctorList.doctor_specialty[index] || 'N/A'}
+                </Text>
+              </View>
+              
+              <View style={styles.doctorInfo}>
+                <View style={styles.doctorInfoRow}>
+                  <MapPin color="#6B7280" size={16} />
+                  <Text style={styles.doctorInfoText}>
+                    {doctorList.doctor_address[index] || 'Address not available'}
+                  </Text>
+                </View>
+                
+                {doctorList.doctor_phone[index] && (
+                  <View style={styles.doctorInfoRow}>
+                    <Phone color="#6B7280" size={16} />
+                    <Text style={styles.doctorInfoText}>
+                      {doctorList.doctor_phone[index]}
+                    </Text>
+                  </View>
+                )}
+                
+                {doctorList.doctor_email[index] && (
+                  <View style={styles.doctorInfoRow}>
+                    <Mail color="#6B7280" size={16} />
+                    <Text style={styles.doctorInfoText}>
+                      {doctorList.doctor_email[index]}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      </Animated.View>
+    );
   };
 
   const renderMessage = (message: ChatMessage, index: number) => {
@@ -384,5 +454,61 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#9CA3AF',
+  },
+  doctorListContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    maxWidth: '95%',
+  },
+  doctorListTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins-Bold',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  doctorCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  doctorHeader: {
+    marginBottom: 12,
+  },
+  doctorName: {
+    fontSize: 18,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  doctorSpecialty: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#3B82F6',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  doctorInfo: {
+    gap: 8,
+  },
+  doctorInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  doctorInfoText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#4B5563',
+    flex: 1,
   },
 });

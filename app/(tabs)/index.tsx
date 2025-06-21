@@ -19,23 +19,30 @@ import {
   Target,
   Plus,
   Bell,
+  Apple,
+  TrendingUp,
 } from 'lucide-react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 
 import HealthCard from '@/components/HealthCard';
 import MetricCard from '@/components/MetricCard';
 import CircularProgress from '@/components/CircularProgress';
 import ConnectionStatus from '@/components/ConnectionStatus';
-import WearableConnectionAlert from '@/components/WearableConnectionAlert';
+import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
+import FoodLogModal from '@/components/Modal/FoodLogModal';
+import LoadingScreen from '@/components/LoadingScreen';
 import { getUserPreferences, saveUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
 import { getUserPreferencesFromDB, updateUserPreferencesInDB, getCachedHealthData, updateCachedHealthData } from '@/lib/api/profile';
-import { getTerraConnections, syncTerraData, getLatestBiometricData } from '@/lib/api/terra';
+import { getUserPreferences as getHealthTrackingPreferences, createOrUpdateUserPreferences, dismissWearablePrompt } from '@/lib/api/healthTracking';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { useUserData } from '@/hooks/useUserData';
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showWearableModal, setShowWearableModal] = useState(false);
+  const [showFoodModal, setShowFoodModal] = useState(false);
   const [healthData, setHealthData] = useState({
     steps: 2453,
     heartRate: 89,
@@ -53,21 +60,31 @@ export default function DashboardScreen() {
   });
 
   const { userData, setUserData } = useUserData();
-  console.log('UserFromDashboard:', userData);
-  const [hasWearableConnection, setHasWearableConnection] = useState(false);
 
   useEffect(() => {
-    loadUserData();
-    loadHealthData();
-    loadUserPreferences();
-    checkWearableConnections();
+    initializeDashboard();
   }, []);
+
+  const initializeDashboard = async () => {
+    setLoading(true);
+    
+    // Simulate loading time for better UX
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    await Promise.all([
+      loadUserData(),
+      loadHealthData(),
+      loadUserPreferences(),
+      checkWearablePrompt(),
+    ]);
+    
+    setLoading(false);
+  };
 
   const loadUserData = async () => {
     try {
-      console.log('UserFromDashboard:', userData);
       if (!userData) return;
-      // userData is already set from context, no need to set it again
+      // userData is already set from context
     } catch (error) {
       console.error('Error in loadUserData:', error);
     }
@@ -77,54 +94,21 @@ export default function DashboardScreen() {
     try {
       if (!userData) return;
 
-      // First, load cached data for immediate display
+      // Load cached data for immediate display
       try {
         const cachedData = await getCachedHealthData(userData.id);
         if (cachedData) {
-          //setHealthData({
-          //  steps: cachedData.steps,
-          //  heartRate: cachedData.heartRate || 0,
-          //  calories: cachedData.calories,
-          //  sleep: cachedData.sleep || 0,
-          //  activeMinutes: cachedData.activeMinutes,
-          //  distance: cachedData.distance / 1000, // Convert to km
-          //});
-        }
-      } catch (error) {
-        console.log('No cached health data available:', error);
-      }
-
-      // Then try to sync Terra data and update cache
-      try {
-        await syncTerraData(userData.id);
-        
-        // Get latest biometric data from database
-        const latestData = await getLatestBiometricData(userData.id);
-        
-        if (latestData) {
-          const newHealthData = {
-            steps: latestData.steps || 0,
-            heartRate: latestData.heart_rate_avg || 0,
-            calories: latestData.calories_burned || 0,
-            sleep: latestData.sleep_hours || 0,
-            activeMinutes: latestData.active_minutes || 0,
-            distance: latestData.distance_meters ? latestData.distance_meters / 1000 : 0, // Convert to km
-          };
-
-          //setHealthData(newHealthData);
-
-          // Update cache with latest data
-          await updateCachedHealthData(userData.id, {
-            steps: latestData.steps || 0,
-            heartRate: latestData.heart_rate_avg,
-            calories: latestData.calories_burned || 0,
-            sleep: latestData.sleep_hours,
-            activeMinutes: latestData.active_minutes || 0,
-            distance: latestData.distance_meters || 0,
+          setHealthData({
+            steps: cachedData.steps,
+            heartRate: cachedData.heartRate || 0,
+            calories: cachedData.calories,
+            sleep: cachedData.sleep || 0,
+            activeMinutes: cachedData.activeMinutes,
+            distance: cachedData.distance / 1000, // Convert to km
           });
         }
       } catch (error) {
-        console.log('Terra sync failed, using cached/existing data:', error);
+        console.log('No cached health data available:', error);
       }
     } catch (error) {
       console.error('Error loading health data:', error);
@@ -160,22 +144,26 @@ export default function DashboardScreen() {
     }
   };
 
-  const checkWearableConnections = async () => {
+  const checkWearablePrompt = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userData) return;
 
-      const connections = await getTerraConnections(user.id);
-      setHasWearableConnection(connections.some(conn => conn.is_active));
+      const preferences = await getHealthTrackingPreferences(userData.id);
+      
+      // Show modal if user hasn't connected wearable and hasn't dismissed prompt
+      if (!preferences?.wearable_connected && !preferences?.wearable_prompt_dismissed) {
+        setTimeout(() => {
+          setShowWearableModal(true);
+        }, 1000); // Show after loading screen
+      }
     } catch (error) {
-      console.error('Error checking wearable connections:', error);
+      console.error('Error checking wearable prompt:', error);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHealthData();
-    await checkWearableConnections();
     setRefreshing(false);
   };
 
@@ -184,202 +172,257 @@ export default function DashboardScreen() {
   };
 
   const handleConnectWearable = () => {
+    setShowWearableModal(false);
     router.push('/(tabs)/profile');
   };
 
+  const handleDismissWearable = async () => {
+    setShowWearableModal(false);
+    try {
+      await dismissWearablePrompt(userData.id);
+    } catch (error) {
+      console.error('Error dismissing wearable prompt:', error);
+    }
+  };
+
+  const capitalizeFirstLetter = (str: string) => {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ConnectionStatus />
+    <>
+      <LoadingScreen visible={loading} />
       
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Wearable Connection Alert */}
-        {!hasWearableConnection ? (
-          <WearableConnectionAlert onConnect={handleConnectWearable} />
-        ) : null}
-
-        {/* Header */}
-        <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good Morning</Text>
-            <Text style={styles.userName}>
-              {userData?.first_name || 'User'}
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.notificationButton}>
-            <Bell color="#6B7280" size={24} />
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Today's Summary */}
-        <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Health</Text>
-          <View style={styles.summaryCard}>
-            <LinearGradient
-              colors={['#3B82F6', '#1E40AF']}
-              style={styles.summaryGradient}
-            >
-              <Text style={styles.summaryText}>
-                {hasWearableConnection ? "You're doing great!" : "Connect your wearable to get started!"}
+      <SafeAreaView style={styles.container}>
+        <ConnectionStatus />
+        
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Good Morning</Text>
+              <Text style={styles.userName}>
+                {userData?.first_name ? capitalizeFirstLetter(userData.first_name) : 'User'}
               </Text>
-              <Text style={styles.summarySubtext}>
-                {hasWearableConnection 
-                  ? `You've completed ${Math.round((calculateProgress(healthData.steps, goals.steps) + calculateProgress(healthData.calories, goals.calories)) / 2)}% of your daily goals`
-                  : "Sync your fitness data to see personalized insights"
-                }
-              </Text>
-            </LinearGradient>
-          </View>
-        </Animated.View>
-
-        {/* Main Health Cards */}
-        <View style={styles.section}>
-          <View style={styles.cardGrid}>
-            <View style={styles.cardRow}>
-              <View style={styles.cardHalf}>
-                <HealthCard
-                  title="Steps"
-                  value={healthData.steps.toLocaleString()}
-                  icon={Footprints}
-                  colors={['#3B82F6', '#1E40AF']}
-                  progress={calculateProgress(healthData.steps, goals.steps)}
-                  delay={300}
-                />
-              </View>
-              <View style={styles.cardHalf}>
-                <HealthCard
-                  title="Calories"
-                  value={healthData.calories}
-                  unit="kcal"
-                  icon={Flame}
-                  colors={['#F97316', '#EA580C']}
-                  progress={calculateProgress(healthData.calories, goals.calories)}
-                  delay={400}
-                />
-              </View>
             </View>
+            <TouchableOpacity style={styles.notificationButton}>
+              <Bell color="#6B7280" size={24} />
+            </TouchableOpacity>
+          </Animated.View>
 
-            <View style={styles.cardRow}>
-              <View style={styles.cardFull}>
-                <View style={styles.heartRateCard}>
-                  <LinearGradient
-                    colors={['#EF4444', '#DC2626']}
-                    style={styles.heartRateGradient}
-                  >
-                    <View style={styles.heartRateHeader}>
-                      <Heart color="white" size={24} />
-                      <Text style={styles.heartRateTitle}>Heart Rate</Text>
-                    </View>
-                    
-                    <View style={styles.heartRateContent}>
-                      <CircularProgress
-                        size={120}
-                        strokeWidth={8}
-                        progress={75}
-                        color="white"
-                        backgroundColor="rgba(255, 255, 255, 0.3)"
+          {/* Today's Summary */}
+          <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Today's Health</Text>
+            <View style={styles.summaryCard}>
+              <LinearGradient
+                colors={['#3B82F6', '#1E40AF']}
+                style={styles.summaryGradient}
+              >
+                <Text style={styles.summaryText}>You're doing great!</Text>
+                <Text style={styles.summarySubtext}>
+                  You've completed {Math.round((calculateProgress(healthData.steps, goals.steps) + calculateProgress(healthData.calories, goals.calories)) / 2)}% of your daily goals
+                </Text>
+              </LinearGradient>
+            </View>
+          </Animated.View>
+
+          {/* Main Health Cards */}
+          <View style={styles.section}>
+            <View style={styles.cardGrid}>
+              <View style={styles.cardRow}>
+                <View style={styles.cardHalf}>
+                  <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
+                    <HealthCard
+                      title="Steps"
+                      value={healthData.steps.toLocaleString()}
+                      icon={Footprints}
+                      colors={['#3B82F6', '#1E40AF']}
+                      progress={calculateProgress(healthData.steps, goals.steps)}
+                      delay={300}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.cardHalf}>
+                  <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
+                    <HealthCard
+                      title="Calories"
+                      value={healthData.calories}
+                      unit="kcal"
+                      icon={Flame}
+                      colors={['#F97316', '#EA580C']}
+                      progress={calculateProgress(healthData.calories, goals.calories)}
+                      delay={400}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.cardRow}>
+                <View style={styles.cardFull}>
+                  <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
+                    <View style={styles.heartRateCard}>
+                      <LinearGradient
+                        colors={['#EF4444', '#DC2626']}
+                        style={styles.heartRateGradient}
                       >
-                        <Text style={styles.heartRateValue}>
-                          {healthData.heartRate || '--'}
-                        </Text>
-                        <Text style={styles.heartRateUnit}>BPM</Text>
-                      </CircularProgress>
-                      
-                      <View style={styles.heartRateStats}>
-                        <View style={styles.heartRateStat}>
-                          <Text style={styles.heartRateStatValue}>--</Text>
-                          <Text style={styles.heartRateStatLabel}>Resting</Text>
+                        <View style={styles.heartRateHeader}>
+                          <Heart color="white" size={24} />
+                          <Text style={styles.heartRateTitle}>Heart Rate</Text>
                         </View>
-                        <View style={styles.heartRateStat}>
-                          <Text style={styles.heartRateStatValue}>--</Text>
-                          <Text style={styles.heartRateStatLabel}>Max Today</Text>
+                        
+                        <View style={styles.heartRateContent}>
+                          <CircularProgress
+                            size={120}
+                            strokeWidth={8}
+                            progress={75}
+                            color="white"
+                            backgroundColor="rgba(255, 255, 255, 0.3)"
+                          >
+                            <Text style={styles.heartRateValue}>
+                              {healthData.heartRate || '--'}
+                            </Text>
+                            <Text style={styles.heartRateUnit}>BPM</Text>
+                          </CircularProgress>
+                          
+                          <View style={styles.heartRateStats}>
+                            <View style={styles.heartRateStat}>
+                              <Text style={styles.heartRateStatValue}>--</Text>
+                              <Text style={styles.heartRateStatLabel}>Resting</Text>
+                            </View>
+                            <View style={styles.heartRateStat}>
+                              <Text style={styles.heartRateStatValue}>--</Text>
+                              <Text style={styles.heartRateStatLabel}>Max Today</Text>
+                            </View>
+                          </View>
                         </View>
-                      </View>
+                      </LinearGradient>
                     </View>
-                  </LinearGradient>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* Secondary Metrics */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Health Metrics</Text>
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricItem}>
-              <MetricCard
-                title="Sleep"
-                value={healthData.sleep.toFixed(1)}
-                unit="hours"
-                icon={Moon}
-                color="#8B5CF6"
-                change={5}
-                delay={500}
-              />
-            </View>
-            <View style={styles.metricItem}>
-              <MetricCard
-                title="Active Minutes"
-                value={healthData.activeMinutes}
-                unit="min"
-                icon={Activity}
-                color="#10B981"
-                change={-2}
-                delay={600}
-              />
-            </View>
-            <View style={styles.metricItem}>
-              <MetricCard
-                title="Distance"
-                value={healthData.distance.toFixed(1)}
-                unit="km"
-                icon={Target}
-                color="#F59E0B"
-                change={12}
-                delay={700}
-              />
+          {/* Secondary Metrics */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Health Metrics</Text>
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricItem}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
+                  <MetricCard
+                    title="Sleep"
+                    value={healthData.sleep.toFixed(1)}
+                    unit="hours"
+                    icon={Moon}
+                    color="#8B5CF6"
+                    change={5}
+                    delay={500}
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.metricItem}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
+                  <MetricCard
+                    title="Active Minutes"
+                    value={healthData.activeMinutes}
+                    unit="min"
+                    icon={Activity}
+                    color="#10B981"
+                    change={-2}
+                    delay={600}
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.metricItem}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
+                  <MetricCard
+                    title="Distance"
+                    value={healthData.distance.toFixed(1)}
+                    unit="km"
+                    icon={Target}
+                    color="#F59E0B"
+                    change={12}
+                    delay={700}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Quick Actions */}
-        <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Plus color="#F97316" size={24} />
-              <Text style={styles.actionText}>Log Symptoms</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Plus color="#F97316" size={24} />
-              <Text style={styles.actionText}>Add Medication</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        {/* Health Tip */}
-        <Animated.View entering={FadeInUp.delay(900).duration(600)} style={styles.section}>
-          <View style={styles.tipCard}>
-            <Image
-              source={{ uri: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg' }}
-              style={styles.tipImage}
-            />
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Daily Health Tip</Text>
-              <Text style={styles.tipText}>
-                Stay hydrated! Aim for 8 glasses of water throughout the day to maintain optimal health.
-              </Text>
+          {/* Quick Actions */}
+          <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => router.push('/(tabs)/log-symptoms')}
+              >
+                <Plus color="#F97316" size={24} />
+                <Text style={styles.actionText}>Log Symptoms</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => router.push('/(tabs)/add-medication')}
+              >
+                <Plus color="#F97316" size={24} />
+                <Text style={styles.actionText}>Add Medication</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => setShowFoodModal(true)}
+              >
+                <Apple color="#F97316" size={24} />
+                <Text style={styles.actionText}>Log Food</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => router.push('/(tabs)/health-metrics')}
+              >
+                <TrendingUp color="#F97316" size={24} />
+                <Text style={styles.actionText}>Health Metrics</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-        </Animated.View>
-      </ScrollView>
-    </SafeAreaView>
+          </Animated.View>
+
+          {/* Health Tip */}
+          <Animated.View entering={FadeInUp.delay(900).duration(600)} style={styles.section}>
+            <View style={styles.tipCard}>
+              <Image
+                source={{ uri: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg' }}
+                style={styles.tipImage}
+              />
+              <View style={styles.tipContent}>
+                <Text style={styles.tipTitle}>Daily Health Tip</Text>
+                <Text style={styles.tipText}>
+                  Stay hydrated! Aim for 8 glasses of water throughout the day to maintain optimal health.
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        </ScrollView>
+
+        <WearableConnectionModal
+          visible={showWearableModal}
+          onConnect={handleConnectWearable}
+          onDismiss={handleDismissWearable}
+        />
+
+        <FoodLogModal
+          visible={showFoodModal}
+          onClose={() => setShowFoodModal(false)}
+          onSave={() => {}}
+        />
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -526,10 +569,11 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   actionButton: {
-    flex: 1,
+    width: '48%',
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,

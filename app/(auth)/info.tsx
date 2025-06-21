@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
-import { supabase } from '../../lib/supabase';
+import  supabase  from '../../lib/supabase';
 
 
 

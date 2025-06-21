@@ -95,7 +95,7 @@ export default function SignupScreen() {
         return true;
       
       case 3:
-        const addressRegex = /^[a-zA-Z0-9\s,.-#]+$/;
+        const addressRegex = /^[a-zA-Z0-9\s,.#-]+$/;
         
         if (!formData.address.trim()) {
           showToast('Please enter your address');

@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Button,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Bot, User, Phone, Mail, MapPin } from 'lucide-react-native';
@@ -29,16 +30,38 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-export interface DoctorList {
-  doctor_name: string[];
-  doctor_specialty: string[];
-  doctor_address: string[];
-  doctor_phone: string[];
-  doctor_email: string[];
-  //doctor_website: string;
-  //doctor_rating: number;
-  //doctor_reviews: number;
+export interface DoctorApiResponse {
+  result_count: number;
+  results: Doctor[];
 }
+
+export interface Doctor {
+  basic: {
+    first_name: string;
+    last_name: string;
+    name: string;
+    credential: string;
+  };
+  addresses: Array<{
+    address_1: string;
+    address_2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }>;
+  practiceLocations: Array<{
+    address_1: string;
+    address_2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }>;
+  taxonomies: Array<{
+    desc: string;
+    primary: boolean;
+  }>;
+}
+
 
 export default function AIAssistantScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -51,8 +74,10 @@ export default function AIAssistantScreen() {
   ]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [doctorLists, setDoctorLists] = useState<DoctorList[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [zipCode, setZipCode] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
+  const textInputRef = useRef<TextInput>(null);
   const { userData } = useUserData();
 
   useEffect(() => {
@@ -162,10 +187,59 @@ export default function AIAssistantScreen() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const renderDoctorList = (doctorList: DoctorList) => {
-    // Assuming all arrays have the same length, use the first array's length
-    const doctorCount = doctorList.doctor_name.length;
-    
+  const fetchAndRenderDoctors = async () => {
+    try {
+      //In the future get zip code from location services.
+      const response = await fetch(`https://apitest-oww0.onrender.com/api/doctors/${userData.zip_code}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        //body: JSON.stringify({
+          //Later integrate with location services.
+          //zipCode: zipCode,
+        //}),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch doctors');
+      }
+      
+      const data: DoctorApiResponse = await response.json();
+      console.log(data);
+      
+      // Store the doctors in state
+      setDoctors(data.results);
+      
+      // Add a message to show the doctors in the chat
+      const doctorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `Found ${data.result_count} doctors near you:`,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, doctorMessage]);
+      renderDoctorList(data.results);
+      
+      
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+      
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Sorry, I had trouble finding doctors in your area. Please try again later.',
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderDoctorList = (doctorList : Doctor[]) => {
     return (
       <Animated.View
         entering={FadeInRight.delay(1000).duration(400)}
@@ -176,45 +250,38 @@ export default function AIAssistantScreen() {
       >
         <View style={styles.doctorListContainer}>
           <Text style={styles.doctorListTitle}>Recommended Doctors Near You</Text>
-          {Array.from({ length: doctorCount }, (_, index) => (
-            <View key={index} style={styles.doctorCard}>
-              <View style={styles.doctorHeader}>
-                <Text style={styles.doctorName}>
-                  {doctorList.doctor_name[index] || 'N/A'}
-                </Text>
-                <Text style={styles.doctorSpecialty}>
-                  {doctorList.doctor_specialty[index] || 'N/A'}
-                </Text>
-              </View>
-              
-              <View style={styles.doctorInfo}>
-                <View style={styles.doctorInfoRow}>
-                  <MapPin color="#6B7280" size={16} />
-                  <Text style={styles.doctorInfoText}>
-                    {doctorList.doctor_address[index] || 'Address not available'}
+          {doctorList.map((doctor, index) => {
+            const doctorName = doctor.basic?.name || 
+                             `${doctor.basic?.first_name || ''} ${doctor.basic?.last_name || ''}`.trim() || 'N/A';
+            const specialty = doctor.taxonomies?.find(t => t.primary)?.desc || 
+                             doctor.taxonomies?.[0]?.desc || 'N/A';
+            const address = doctor.addresses?.[0] || doctor.practiceLocations?.[0];
+            const addressString = address ? 
+              `${address.address_1}${address.address_2 ? ', ' + address.address_2 : ''}, ${address.city}, ${address.state} ${address.postal_code}` : 
+              'Address not available';
+
+            return (
+              <View key={index} style={styles.doctorCard}>
+                <View style={styles.doctorHeader}>
+                  <Text style={styles.doctorName}>
+                    {doctorName}
+                  </Text>
+                  <Text style={styles.doctorSpecialty}>
+                    {specialty}
                   </Text>
                 </View>
                 
-                {doctorList.doctor_phone[index] && (
+                <View style={styles.doctorInfo}>
                   <View style={styles.doctorInfoRow}>
-                    <Phone color="#6B7280" size={16} />
+                    <MapPin color="#6B7280" size={16} />
                     <Text style={styles.doctorInfoText}>
-                      {doctorList.doctor_phone[index]}
+                      {addressString}
                     </Text>
                   </View>
-                )}
-                
-                {doctorList.doctor_email[index] && (
-                  <View style={styles.doctorInfoRow}>
-                    <Mail color="#6B7280" size={16} />
-                    <Text style={styles.doctorInfoText}>
-                      {doctorList.doctor_email[index]}
-                    </Text>
-                  </View>
-                )}
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </Animated.View>
     );
@@ -271,6 +338,7 @@ export default function AIAssistantScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.chatContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -279,6 +347,8 @@ export default function AIAssistantScreen() {
           showsVerticalScrollIndicator={false}
         >
           {messages.map((message, index) => renderMessage(message, index))}
+          
+          {doctors.length > 0 && renderDoctorList(doctors)}
           
           {loading ? (
             <Animated.View
@@ -299,9 +369,22 @@ export default function AIAssistantScreen() {
             </Animated.View>
           ) : null}
         </ScrollView>
-
+          <View>
+            {/*Need to update this to enable button regardless of function return */}
+            <TouchableOpacity 
+              style={[styles.findDoctorsButton, loading && styles.findDoctorsButtonDisabled]}
+              onPress={async () => {
+                setLoading(true);
+                await fetchAndRenderDoctors();
+              }}
+              disabled={loading}>
+              <MapPin color="#3B82F6" size={16} />
+              <Text style={styles.findDoctorsButtonText}>Locate Doctors near you</Text>
+            </TouchableOpacity>
+          </View>
         <View style={styles.inputContainer}>
           <TextInput
+            ref={textInputRef}
             style={styles.textInput}
             placeholder="Ask about your health..."
             placeholderTextColor="#9CA3AF"
@@ -311,6 +394,15 @@ export default function AIAssistantScreen() {
             maxLength={500}
             onSubmitEditing={sendMessage}
             blurOnSubmit={false}
+            keyboardType="default"
+            returnKeyType="send"
+            enablesReturnKeyAutomatically={true}
+            textAlignVertical="top"
+            onFocus={() => {
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 100);
+            }}
           />
           <TouchableOpacity
             style={[styles.sendButton, (!inputText.trim() || loading) ? styles.sendButtonDisabled : null]}
@@ -510,5 +602,29 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#4B5563',
     flex: 1,
+  },
+      findDoctorsButton: {
+      flexDirection: 'row',
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+      backgroundColor: '#EFF6FF',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#3B82F6',
+      margin: 16,
+      gap: 8,
+      alignSelf: 'flex-start',
+    },
+  findDoctorsButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Medium',
+    color: '#3B82F6',
+  },
+  findDoctorsButtonDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#D1D5DB',
+    opacity: 0.6,
   },
 });

@@ -65,17 +65,42 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      console.log('signing up');
+      const { data,error } = await supabase.auth.signUp({
         email,
         password,
       });
       setLoading(false);
+      console.log('data');
+      const signupData = data;
+      console.log(signupData)
       // TODO: Replace this with a modal!
-      router.replace('/(auth)/info');
-
+      //router.replace('/(auth)/info');
+      if (signupData) {
+        try {
+        const { data, error: userError } = await supabase.from('users').insert({
+          id: signupData.user?.id,
+          email: signupData.user?.email,
+          first_name: firstName,
+          last_name: lastName,
+          zip_code: zipCode,
+          city: city,
+          state: state,
+          address_line_1: address,
+        });
+        console.log('public users update success');
+        console.log(data);
+          if (userError) {
+            Alert.alert('Error', userError.message);
+          }
+        } catch (error) {
+          Alert.alert('Error', 'An unexpected error occurred');
+        }
+      }
       if (error) {
         Alert.alert('Signup Failed', error.message);
       } else {
+        setShowVerifiedModal(true);
         Alert.alert(
           'Success',
           'Account created successfully! Please check your email for verification.',
@@ -275,7 +300,6 @@ export default function SignupScreen() {
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={() => {
                   if (formData.zipCode && formData.city && formData.state && formData.address) {
-                    setShowVerifiedModal(true);
                     handleSignup();
                   } else {
                     Alert.alert('Error', 'Please fill in all fields');

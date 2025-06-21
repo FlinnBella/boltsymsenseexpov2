@@ -31,12 +31,13 @@ export default function UserProvider({ children }: { children: React.ReactNode }
                     console.log('No authenticated user found');
                     return;
                 }
-                
+                console.log(user)
                 const { data: userProfile, error } = await supabase
                     .from('users')
                     .select('*')
                     .eq('id', user.id)
                     .single();
+                console.log(userProfile)
                 console.log('User found!');
                 
                 if (error) {

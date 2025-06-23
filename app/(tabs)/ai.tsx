@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Bot, User, Phone, Mail, MapPin } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useUserData } from '@/hooks/useUserData';
+import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
 
 //TODO: Use frontend to update the chat message for user. Let the ai have a loading bubbles 
 //while waiting for response. 
@@ -75,7 +76,6 @@ export default function AIAssistantScreen() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [zipCode, setZipCode] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
   const textInputRef = useRef<TextInput>(null);
   const { userData } = useUserData();
@@ -189,16 +189,70 @@ export default function AIAssistantScreen() {
 
   const fetchAndRenderDoctors = async () => {
     try {
-      //In the future get zip code from location services.
-      const response = await fetch(`https://apitest-oww0.onrender.com/api/doctors/${userData.zip_code}`, {
+      // Ask user for location permission first
+      const userConsent = await showLocationPermissionAlert();
+      if (!userConsent) {
+        //const cancelMessage: ChatMessage = {
+        //  id: Date.now().toString(),
+        //  role: 'assistant',
+        //  content: 'Location access is needed to find doctors near you. You can try again anytime or use the zip code from your profile.',
+        //  timestamp: new Date(),
+        //};
+        //setMessages(prev => [...prev, cancelMessage]);
+        return;
+      }
+
+      // Get current location and zip code
+      const locationResult = await getCurrentLocationWithZipCode();
+      
+      // Check if location fetch failed
+      if ('code' in locationResult) {
+        const locationError = locationResult as LocationError;
+        console.error('Location error:', locationError);
+        
+        // Fall back to user's saved zip code if available
+        const fallbackZipCode = userData.zip_code;
+        if (fallbackZipCode) {
+          const fallbackMessage: ChatMessage = {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `Unable to get your current location (${locationError.message}). Using your saved zip code: ${fallbackZipCode}`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, fallbackMessage]);
+        } else {
+          const errorMessage: ChatMessage = {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `Unable to find doctors: ${locationError.message}`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+          return;
+        }
+      }
+
+      // Use current location zip code or fall back to saved zip code
+      const locationData = locationResult as LocationData;
+      const zipCodeToUse = ('zipCode' in locationResult) ? locationData.zipCode : userData.zip_code;
+      
+      if (!zipCodeToUse) {
+        const noZipMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'No zip code available. Please update your profile with your zip code or enable location services.',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, noZipMessage]);
+        return;
+      }
+
+      // Fetch doctors using the zip code
+      const response = await fetch(`https://apitest-oww0.onrender.com/api/doctors/${zipCodeToUse}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        //body: JSON.stringify({
-          //Later integrate with location services.
-          //zipCode: zipCode,
-        //}),
       });
       
       if (!response.ok) {
@@ -212,10 +266,14 @@ export default function AIAssistantScreen() {
       setDoctors(data.results);
       
       // Add a message to show the doctors in the chat
+      const locationText = ('zipCode' in locationResult) ? 
+        `your current location (${locationData.zipCode})` : 
+        `your saved zip code (${userData.zip_code})`;
+      
       const doctorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `Found ${data.result_count} doctors near you:`,
+        content: `Found ${data.result_count} doctors near ${locationText}:`,
         timestamp: new Date(),
       };
       

@@ -19,7 +19,7 @@ import { getUserPreferences, saveUserPreferences, clearUserPreferences, UserPref
 import { getUserProfile, getPatientProfile, getHealthGoals, updateHealthGoal, getUserPreferencesFromDB, updateUserPreferencesInDB, UserProfile, PatientProfile } from '@/lib/api/profile';
 import { getTerraConnections, terraAPI, saveTerraConnection } from '@/lib/api/terra';
 import ProfileEditModal from '@/components/Modal/ProfileEditModal';
-import WearableConnectionAlert from '@/components/WearableConnectionAlert';
+import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUserData } from '@/hooks/useUserData';
@@ -32,6 +32,7 @@ export default function ProfileScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [terraConnections, setTerraConnections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showWearableConnectionModal, setShowWearableConnectionModal] = useState(false);
 
  
   useEffect(() => {
@@ -287,7 +288,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <WearableConnectionAlert onConnect={handleConnectWearable} />
+      <WearableConnectionModal visible={showWearableConnectionModal} onConnect={handleConnectWearable} onDismiss={() => setShowWearableConnectionModal(false)} />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         

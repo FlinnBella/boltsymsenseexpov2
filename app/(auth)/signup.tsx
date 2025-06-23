@@ -257,7 +257,6 @@ export default function SignupScreen() {
         password: formData.password,
       });
       
-      console.log('data');
       const signupData = data;
       console.log(signupData)
       

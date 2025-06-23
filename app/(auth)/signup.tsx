@@ -73,6 +73,7 @@ export default function SignupScreen() {
   }, [activeStep]);
 
   const resetAddressFields = () => {
+    console.log('Resetting address fields');
     setFormData(prev => ({
       ...prev,
       address: '',
@@ -184,6 +185,7 @@ export default function SignupScreen() {
   };
 
   const updateFormData = (field: keyof FormData, value: any) => {
+    console.log(`Updating ${field} to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -214,11 +216,24 @@ export default function SignupScreen() {
     state: string;
     zipCode: string;
   }) => {
-    updateFormData('address', addressData.streetAddress);
-    updateFormData('city', addressData.city);
-    updateFormData('state', addressData.state);
-    updateFormData('zipCode', addressData.zipCode);
+    console.log('Address selected in signup component:', addressData);
+    
+    // Update all address fields at once
+    setFormData(prev => ({
+      ...prev,
+      address: addressData.streetAddress,
+      city: addressData.city,
+      state: addressData.state,
+      zipCode: addressData.zipCode,
+    }));
+    
     setAddressAutocompleted(true);
+    console.log('Form data after address selection:', {
+      address: addressData.streetAddress,
+      city: addressData.city,
+      state: addressData.state,
+      zipCode: addressData.zipCode,
+    });
   };
 
   const handleAddressChange = (text: string) => {
@@ -451,8 +466,20 @@ export default function SignupScreen() {
 
         {addressAutocompleted && (
           <Text style={styles.autocompleteNote}>
-            Address auto-filled. Edit the address above to make changes.
+            ✅ Address auto-filled. Edit the address above to make changes.
           </Text>
+        )}
+
+        {/* Debug info - remove in production */}
+        {__DEV__ && (
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugText}>Debug Info:</Text>
+            <Text style={styles.debugText}>Address: {formData.address}</Text>
+            <Text style={styles.debugText}>City: {formData.city}</Text>
+            <Text style={styles.debugText}>State: {formData.state}</Text>
+            <Text style={styles.debugText}>ZIP: {formData.zipCode}</Text>
+            <Text style={styles.debugText}>Autocompleted: {addressAutocompleted ? 'Yes' : 'No'}</Text>
+          </View>
         )}
       </View>
     </Animated.View>
@@ -708,10 +735,22 @@ const styles = StyleSheet.create({
   autocompleteNote: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     marginTop: 8,
-    fontStyle: 'italic',
+    fontWeight: '500',
+  },
+  debugContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  debugText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 2,
   },
   diseasesContainer: {
     flexDirection: 'row',

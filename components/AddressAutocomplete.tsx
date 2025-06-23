@@ -111,27 +111,61 @@ export default function AddressAutocomplete({
       setLoading(true);
       setShowSuggestions(false);
       
-      const addressDetails = await googlePlacesService.getPlaceDetails(suggestion.place_id);
+      console.log('Selected suggestion:', suggestion.description);
       
-      // Combine street number and route for full street address
-      const streetAddress = `${addressDetails.streetNumber} ${addressDetails.route}`.trim();
-      const finalAddress = streetAddress || addressDetails.formattedAddress;
+      const addressDetails = await googlePlacesService.getPlaceDetails(suggestion.place_id);
+      console.log('Address details from Google:', addressDetails);
+      
+      // Improved address parsing logic
+      let streetAddress = '';
+      
+      // Try to construct street address from components
+      if (addressDetails.streetNumber && addressDetails.route) {
+        streetAddress = `${addressDetails.streetNumber} ${addressDetails.route}`;
+      } else if (addressDetails.route) {
+        streetAddress = addressDetails.route;
+      } else {
+        // Fallback to using the main text from the suggestion
+        streetAddress = suggestion.structured_formatting.main_text;
+      }
+      
+      // Ensure we have all required components
+      const addressData = {
+        streetAddress: streetAddress.trim(),
+        city: addressDetails.city || '',
+        state: addressDetails.state || '',
+        zipCode: addressDetails.zipCode || '',
+      };
+      
+      console.log('Parsed address data:', addressData);
+      
+      // Validate that we have the essential components
+      if (!addressData.streetAddress) {
+        throw new Error('Unable to parse street address');
+      }
+      
+      if (!addressData.city || !addressData.state) {
+        throw new Error('Unable to parse city or state information');
+      }
       
       // Mark that user has selected an address
       setHasSelectedAddress(true);
-      setLastSelectedValue(finalAddress);
+      setLastSelectedValue(addressData.streetAddress);
       
-      onAddressSelect({
-        streetAddress: finalAddress,
-        city: addressDetails.city,
-        state: addressDetails.state,
-        zipCode: addressDetails.zipCode,
-      });
+      // Update the input field
+      onChangeText(addressData.streetAddress);
       
-      onChangeText(finalAddress);
+      // Call the callback to update form data
+      console.log('Calling onAddressSelect with:', addressData);
+      onAddressSelect(addressData);
+      
     } catch (err) {
       console.error('Error getting place details:', err);
-      setError('Unable to get address details');
+      setError('Unable to get complete address details. Please try another address.');
+      
+      // Reset selection state on error
+      setHasSelectedAddress(false);
+      setLastSelectedValue('');
     } finally {
       setLoading(false);
     }

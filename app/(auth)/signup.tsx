@@ -14,10 +14,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { User, Mail, MapPin, ChevronLeft, Check } from 'lucide-react-native';
+import { User, Mail, ChevronLeft, Check } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import VerifiedModal from '@/components/Modal/VerifiedModal';
-import { getLocationFromZipCode, validateUSZipCode } from '@/lib/zipCodeData';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 const AUTOIMMUNE_DISEASES = [
   { name: 'Rheumatoid Arthritis', emoji: '🦴' },
@@ -45,6 +45,7 @@ export default function SignupScreen() {
   const [activeStep, setActiveStep] = useState(1);
   const [showVerifiedModal, setShowVerifiedModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [addressAutocompleted, setAddressAutocompleted] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -102,12 +103,8 @@ export default function SignupScreen() {
           showToast('Please enter your ZIP code');
           return false;
         }
-        if (!validateUSZipCode(formData.zipCode)) {
-          showToast('Please enter a valid US ZIP code');
-          return false;
-        }
         if (!formData.city || !formData.state) {
-          showToast('Invalid ZIP code - city/state not found');
+          showToast('Please select an address from the suggestions or enter complete address information');
           return false;
         }
         return true;
@@ -187,23 +184,27 @@ export default function SignupScreen() {
     updateFormData('autoimmuneDiseases', currentDiseases);
   };
 
-  const handleZipCodeChange = (zipCode: string) => {
-    // Only allow numeric input
-    const numericZipCode = zipCode.replace(/\D/g, '');
-    updateFormData('zipCode', numericZipCode);
-    
-    if (numericZipCode.length === 5) {
-      const locationData = getLocationFromZipCode(numericZipCode);
-      if (locationData) {
-        updateFormData('city', locationData.city);
-        updateFormData('state', locationData.state);
-      } else {
-        updateFormData('city', '');
-        updateFormData('state', '');
-      }
-    } else {
+  const handleAddressSelect = (addressData: {
+    streetAddress: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  }) => {
+    updateFormData('address', addressData.streetAddress);
+    updateFormData('city', addressData.city);
+    updateFormData('state', addressData.state);
+    updateFormData('zipCode', addressData.zipCode);
+    setAddressAutocompleted(true);
+  };
+
+  const handleAddressChange = (text: string) => {
+    updateFormData('address', text);
+    // If user manually edits after autocomplete, reset the autocomplete state
+    if (addressAutocompleted) {
+      setAddressAutocompleted(false);
       updateFormData('city', '');
       updateFormData('state', '');
+      updateFormData('zipCode', '');
     }
   };
 
@@ -381,31 +382,28 @@ export default function SignupScreen() {
       <Text style={styles.stepSubtitle}>We'll help you find nearby healthcare providers</Text>
 
       <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <MapPin color="#6B7280" size={20} style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Street Address"
-            placeholderTextColor="#9CA3AF"
-            value={formData.address}
-            onChangeText={(value) => updateFormData('address', value)}
-            autoCapitalize="words"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="ZIP Code"
-            placeholderTextColor="#9CA3AF"
-            value={formData.zipCode}
-            onChangeText={handleZipCodeChange}
-            keyboardType="numeric"
-            maxLength={5}
-          />
-        </View>
+        <AddressAutocomplete
+          value={formData.address}
+          onChangeText={handleAddressChange}
+          onAddressSelect={handleAddressSelect}
+          placeholder="Start typing your address..."
+          style={styles.addressAutocomplete}
+        />
 
         <View style={styles.row}>
+          <View style={[styles.inputContainer, styles.halfWidth]}>
+            <TextInput
+              style={[styles.input, addressAutocompleted ? styles.disabledInput : null]}
+              placeholder="ZIP Code"
+              placeholderTextColor="#9CA3AF"
+              value={formData.zipCode}
+              onChangeText={(value) => updateFormData('zipCode', value)}
+              keyboardType="numeric"
+              maxLength={5}
+              editable={!addressAutocompleted}
+            />
+          </View>
+
           <View style={[styles.inputContainer, styles.halfWidth]}>
             <TextInput
               style={[styles.input, styles.disabledInput]}
@@ -415,21 +413,21 @@ export default function SignupScreen() {
               editable={false}
             />
           </View>
-
-          <View style={[styles.inputContainer, styles.halfWidth]}>
-            <TextInput
-              style={[styles.input, styles.disabledInput]}
-              placeholder="State"
-              placeholderTextColor="#9CA3AF"
-              value={formData.state}
-              editable={false}
-            />
-          </View>
         </View>
 
-        {formData.zipCode.length === 5 && !formData.city && (
-          <Text style={styles.zipCodeError}>
-            ZIP code not found. Please enter a valid US ZIP code.
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, styles.disabledInput]}
+            placeholder="State"
+            placeholderTextColor="#9CA3AF"
+            value={formData.state}
+            editable={false}
+          />
+        </View>
+
+        {addressAutocompleted && (
+          <Text style={styles.autocompleteNote}>
+            Address auto-filled. Edit the address above to make changes.
           </Text>
         )}
       </View>
@@ -527,15 +525,30 @@ export default function SignupScreen() {
               <Text style={styles.moreDiseasesText}>More diseases will be available soon!</Text>
             )}
             
-            <TouchableOpacity
-              style={[styles.button, (isNextDisabled() || loading) && styles.buttonDisabled]}
-              onPress={handleNext}
-              disabled={isNextDisabled() || loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Creating Account...' : activeStep === 4 ? 'Create Account' : 'Next'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              {activeStep > 1 && (
+                <TouchableOpacity
+                  style={styles.backButtonSecondary}
+                  onPress={handleBack}
+                >
+                  <Text style={styles.backButtonText}>Back</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  activeStep > 1 ? styles.buttonHalf : styles.buttonFull,
+                  (isNextDisabled() || loading) && styles.buttonDisabled
+                ]}
+                onPress={handleNext}
+                disabled={isNextDisabled() || loading}
+              >
+                <Text style={styles.buttonText}>
+                  {loading ? 'Creating Account...' : activeStep === 4 ? 'Create Account' : 'Next'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.linkButton}
@@ -663,6 +676,18 @@ const styles = StyleSheet.create({
   },
   disabledInput: {
     color: '#9CA3AF',
+    backgroundColor: '#F9FAFB',
+  },
+  addressAutocomplete: {
+    marginBottom: 0,
+  },
+  autocompleteNote: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   diseasesContainer: {
     flexDirection: 'row',
@@ -706,13 +731,6 @@ const styles = StyleSheet.create({
     top: 8,
     right: 8,
   },
-  zipCodeError: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#FCA5A5',
-    textAlign: 'center',
-    marginTop: 8,
-  },
   moreDiseasesText: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
@@ -721,18 +739,43 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: 16,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
   button: {
     backgroundColor: '#F97316',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+  },
+  buttonFull: {
+    flex: 1,
+  },
+  buttonHalf: {
+    flex: 2,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
+  },
+  backButtonSecondary: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  backButtonText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
     color: 'white',

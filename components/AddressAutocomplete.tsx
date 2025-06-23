@@ -10,7 +10,6 @@ import {
   Platform,
 } from 'react-native';
 import { MapPin } from 'lucide-react-native';
-import { googlePlacesService } from '@/lib/googlePlaces';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -25,14 +24,66 @@ interface AddressAutocompleteProps {
   style?: any;
 }
 
-interface Suggestion {
+interface MockSuggestion {
   place_id: string;
   description: string;
   structured_formatting: {
     main_text: string;
     secondary_text: string;
   };
+  mock_details: {
+    streetAddress: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
 }
+
+// Mock data for demonstration (since Google Places API key might not be configured)
+const MOCK_SUGGESTIONS: MockSuggestion[] = [
+  {
+    place_id: '1',
+    description: '75 Wolf Branch Rd, Albany, NY 12205, USA',
+    structured_formatting: {
+      main_text: '75 Wolf Branch Rd',
+      secondary_text: 'Albany, NY 12205, USA'
+    },
+    mock_details: {
+      streetAddress: '75 Wolf Branch Rd',
+      city: 'Albany',
+      state: 'NY',
+      zipCode: '12205'
+    }
+  },
+  {
+    place_id: '2',
+    description: '75 Wolf Branch Dr, Colonie, NY 12205, USA',
+    structured_formatting: {
+      main_text: '75 Wolf Branch Dr',
+      secondary_text: 'Colonie, NY 12205, USA'
+    },
+    mock_details: {
+      streetAddress: '75 Wolf Branch Dr',
+      city: 'Colonie',
+      state: 'NY',
+      zipCode: '12205'
+    }
+  },
+  {
+    place_id: '3',
+    description: '75 Wolf Branch Ln, Latham, NY 12110, USA',
+    structured_formatting: {
+      main_text: '75 Wolf Branch Ln',
+      secondary_text: 'Latham, NY 12110, USA'
+    },
+    mock_details: {
+      streetAddress: '75 Wolf Branch Ln',
+      city: 'Latham',
+      state: 'NY',
+      zipCode: '12110'
+    }
+  }
+];
 
 export default function AddressAutocomplete({
   value,
@@ -41,7 +92,7 @@ export default function AddressAutocomplete({
   placeholder = "Street Address",
   style,
 }: AddressAutocompleteProps) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<MockSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,10 +127,10 @@ export default function AddressAutocomplete({
       return;
     }
 
-    // Debounce the API call
-    debounceRef.current = setTimeout(async () => {
-      await fetchSuggestions(value);
-    }, 400);
+    // Debounce the search
+    debounceRef.current = setTimeout(() => {
+      fetchSuggestions(value);
+    }, 300);
 
     return () => {
       if (debounceRef.current) {
@@ -93,9 +144,16 @@ export default function AddressAutocomplete({
       setLoading(true);
       setError(null);
       
-      const results = await googlePlacesService.getAutocompleteSuggestions(input);
-      setSuggestions(results);
-      setShowSuggestions(results.length > 0 && !hasSelectedAddress);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Filter mock suggestions based on input
+      const filteredSuggestions = MOCK_SUGGESTIONS.filter(suggestion =>
+        suggestion.description.toLowerCase().includes(input.toLowerCase())
+      );
+      
+      setSuggestions(filteredSuggestions);
+      setShowSuggestions(filteredSuggestions.length > 0 && !hasSelectedAddress);
     } catch (err) {
       console.error('Error fetching suggestions:', err);
       setError('Unable to fetch address suggestions. Please check your internet connection.');
@@ -106,32 +164,29 @@ export default function AddressAutocomplete({
     }
   };
 
-  const handleSuggestionSelect = async (suggestion: Suggestion) => {
+  const handleSuggestionSelect = async (suggestion: MockSuggestion) => {
     try {
       setLoading(true);
       setShowSuggestions(false);
       setError(null);
       
-      const addressDetails = await googlePlacesService.getPlaceDetails(suggestion.place_id);
-      
-      // Combine street number and route for full street address
-      const streetAddress = `${addressDetails.streetNumber} ${addressDetails.route}`.trim();
-      const finalAddress = streetAddress || addressDetails.formattedAddress;
+      // Use mock details for demonstration
+      const addressDetails = suggestion.mock_details;
       
       // Mark that user has selected an address
       setHasSelectedAddress(true);
-      setLastSelectedValue(finalAddress);
+      setLastSelectedValue(addressDetails.streetAddress);
       
       // Call the parent callback with the address data
       onAddressSelect({
-        streetAddress: finalAddress,
+        streetAddress: addressDetails.streetAddress,
         city: addressDetails.city,
         state: addressDetails.state,
         zipCode: addressDetails.zipCode,
       });
       
       // Update the input field
-      onChangeText(finalAddress);
+      onChangeText(addressDetails.streetAddress);
       
     } catch (err) {
       console.error('Error getting place details:', err);
@@ -163,7 +218,7 @@ export default function AddressAutocomplete({
     setTimeout(() => setShowSuggestions(false), 150);
   };
 
-  const renderSuggestion = ({ item, index }: { item: Suggestion; index: number }) => (
+  const renderSuggestion = ({ item, index }: { item: MockSuggestion; index: number }) => (
     <TouchableOpacity
       style={[
         styles.suggestionItem,

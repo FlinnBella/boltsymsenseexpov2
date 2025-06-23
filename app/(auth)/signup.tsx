@@ -214,18 +214,27 @@ export default function SignupScreen() {
     state: string;
     zipCode: string;
   }) => {
-    updateFormData('address', addressData.streetAddress);
-    updateFormData('city', addressData.city);
-    updateFormData('state', addressData.state);
-    updateFormData('zipCode', addressData.zipCode);
+    console.log('Address selected:', addressData); // Debug log
+    
+    // Update all address fields at once
+    setFormData(prev => ({
+      ...prev,
+      address: addressData.streetAddress,
+      city: addressData.city,
+      state: addressData.state,
+      zipCode: addressData.zipCode,
+    }));
+    
     setAddressAutocompleted(true);
   };
 
   const handleAddressChange = (text: string) => {
     updateFormData('address', text);
+    
     // If user manually edits after autocomplete, reset the autocomplete state
-    if (addressAutocompleted) {
+    if (addressAutocompleted && text !== formData.address) {
       setAddressAutocompleted(false);
+      // Clear other fields when user starts typing manually
       updateFormData('city', '');
       updateFormData('state', '');
       updateFormData('zipCode', '');
@@ -451,7 +460,13 @@ export default function SignupScreen() {
 
         {addressAutocompleted && (
           <Text style={styles.autocompleteNote}>
-            Address auto-filled. Edit the address above to make changes.
+            ✓ Address auto-filled. Edit the address above to make changes.
+          </Text>
+        )}
+        
+        {!addressAutocompleted && formData.address.length >= 3 && (
+          <Text style={styles.helpText}>
+            💡 Select an address from the dropdown to auto-fill location details
           </Text>
         )}
       </View>
@@ -706,6 +721,14 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   autocompleteNote: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  helpText: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
     color: 'rgba(255, 255, 255, 0.7)',

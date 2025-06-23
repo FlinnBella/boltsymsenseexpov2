@@ -5,7 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
+  FlatList,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -98,7 +98,7 @@ export default function AddressAutocomplete({
       setShowSuggestions(results.length > 0 && !hasSelectedAddress);
     } catch (err) {
       console.error('Error fetching suggestions:', err);
-      setError('Unable to fetch address suggestions');
+      setError('Unable to fetch address suggestions. Please check your internet connection.');
       setSuggestions([]);
       setShowSuggestions(false);
     } finally {
@@ -110,6 +110,7 @@ export default function AddressAutocomplete({
     try {
       setLoading(true);
       setShowSuggestions(false);
+      setError(null);
       
       const addressDetails = await googlePlacesService.getPlaceDetails(suggestion.place_id);
       
@@ -121,6 +122,7 @@ export default function AddressAutocomplete({
       setHasSelectedAddress(true);
       setLastSelectedValue(finalAddress);
       
+      // Call the parent callback with the address data
       onAddressSelect({
         streetAddress: finalAddress,
         city: addressDetails.city,
@@ -128,10 +130,12 @@ export default function AddressAutocomplete({
         zipCode: addressDetails.zipCode,
       });
       
+      // Update the input field
       onChangeText(finalAddress);
+      
     } catch (err) {
       console.error('Error getting place details:', err);
-      setError('Unable to get address details');
+      setError('Unable to get address details. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -159,9 +163,8 @@ export default function AddressAutocomplete({
     setTimeout(() => setShowSuggestions(false), 150);
   };
 
-  const renderSuggestion = (item: Suggestion, index: number) => (
+  const renderSuggestion = ({ item, index }: { item: Suggestion; index: number }) => (
     <TouchableOpacity
-      key={item.place_id}
       style={[
         styles.suggestionItem,
         index === suggestions.length - 1 && styles.lastSuggestionItem
@@ -197,14 +200,16 @@ export default function AddressAutocomplete({
 
       {showSuggestions && suggestions.length > 0 && !hasSelectedAddress && (
         <View style={styles.suggestionsContainer}>
-          <ScrollView
+          <FlatList
+            data={suggestions}
+            renderItem={renderSuggestion}
+            keyExtractor={(item) => item.place_id}
             style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            nestedScrollEnabled={true}
-          >
-            {suggestions.map((item, index) => renderSuggestion(item, index))}
-          </ScrollView>
+            nestedScrollEnabled={false}
+            scrollEnabled={true}
+          />
         </View>
       )}
 

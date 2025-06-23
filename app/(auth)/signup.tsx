@@ -19,21 +19,19 @@ import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import VerifiedModal from '@/components/Modal/VerifiedModal';
 import { getLocationFromZipCode, validateUSZipCode } from '@/lib/zipCodeData';
 
-const MEDICAL_CONDITIONS = [
-  'Rheumatoid Arthritis',
-  'Type 1 Diabetes',
-  'Multiple Sclerosis',
-  'Systemic Lupus',
-  "Crohn's Disease",
-  'None of the above',
-  'Other'
+const AUTOIMMUNE_DISEASES = [
+  { name: 'Rheumatoid Arthritis', emoji: '🦴' },
+  { name: 'Type 1 Diabetes', emoji: '🩸' },
+  { name: 'Multiple Sclerosis', emoji: '🧠' },
+  { name: 'Systemic Lupus', emoji: '🦋' },
+  { name: "Crohn's Disease", emoji: '🫁' },
+  { name: 'None of the above', emoji: '❌' },
 ];
 
 interface FormData {
   firstName: string;
   lastName: string;
-  medicalConditions: string[];
-  otherCondition: string;
+  autoimmuneDiseases: string[];
   address: string;
   city: string;
   state: string;
@@ -50,8 +48,7 @@ export default function SignupScreen() {
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
-    medicalConditions: [],
-    otherCondition: '',
+    autoimmuneDiseases: [],
     address: '',
     city: '',
     state: '',
@@ -65,7 +62,7 @@ export default function SignupScreen() {
     if (Platform.OS === 'android') {
       ToastAndroid.show(message, ToastAndroid.SHORT);
     } else {
-      Alert.alert('Validation Error', message);
+      Alert.alert('Error', message);
     }
   };
 
@@ -84,12 +81,8 @@ export default function SignupScreen() {
         return true;
       
       case 2:
-        if (formData.medicalConditions.length === 0) {
+        if (formData.autoimmuneDiseases.length === 0) {
           showToast('Please select at least one option');
-          return false;
-        }
-        if (formData.medicalConditions.includes('Other') && !formData.otherCondition.trim()) {
-          showToast('Please specify your other condition');
           return false;
         }
         return true;
@@ -173,30 +166,25 @@ export default function SignupScreen() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleConditionToggle = (condition: string) => {
-    const currentConditions = [...formData.medicalConditions];
-    const index = currentConditions.indexOf(condition);
+  const handleDiseaseToggle = (disease: string) => {
+    const currentDiseases = [...formData.autoimmuneDiseases];
+    const index = currentDiseases.indexOf(disease);
     
     if (index > -1) {
-      currentConditions.splice(index, 1);
-      // Clear other condition text if "Other" is deselected
-      if (condition === 'Other') {
-        updateFormData('otherCondition', '');
-      }
+      currentDiseases.splice(index, 1);
     } else {
       // Handle mutual exclusivity with "None of the above"
-      if (condition === 'None of the above') {
-        updateFormData('medicalConditions', ['None of the above']);
-        updateFormData('otherCondition', '');
+      if (disease === 'None of the above') {
+        updateFormData('autoimmuneDiseases', ['None of the above']);
         return;
-      } else if (currentConditions.includes('None of the above')) {
-        const noneIndex = currentConditions.indexOf('None of the above');
-        currentConditions.splice(noneIndex, 1);
+      } else if (currentDiseases.includes('None of the above')) {
+        const noneIndex = currentDiseases.indexOf('None of the above');
+        currentDiseases.splice(noneIndex, 1);
       }
-      currentConditions.push(condition);
+      currentDiseases.push(disease);
     }
     
-    updateFormData('medicalConditions', currentConditions);
+    updateFormData('autoimmuneDiseases', currentDiseases);
   };
 
   const handleZipCodeChange = (zipCode: string) => {
@@ -228,36 +216,39 @@ export default function SignupScreen() {
         email: formData.email,
         password: formData.password,
       });
-      setLoading(false);
+      
       console.log('data');
       const signupData = data;
       console.log(signupData)
-      // TODO: Replace this with a modal!
-      //router.replace('/(auth)/info');
+      
       if (signupData) {
         try {
-        const { data, error: userError } = await supabase.from('users').insert({
-          id: signupData.user?.id,
-          email: signupData.user?.email,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          zip_code: formData.zipCode,
-          city: formData.city,
-          state: formData.state,
-          address_line_1: formData.address,
-        });
-        console.log('public users update success');
-        console.log(data);
+          const { data, error: userError } = await supabase.from('users').insert({
+            id: signupData.user?.id,
+            email: signupData.user?.email,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            zip_code: formData.zipCode,
+            city: formData.city,
+            state: formData.state,
+            address_line_1: formData.address,
+            autoimmune_diseases: formData.autoimmuneDiseases,
+          });
+          console.log('public users update success');
+          console.log(data);
+          
           if (userError) {
-            Alert.alert('Error', userError.message);
+            showToast(userError.message);
+            return;
           }
         } catch (error) {
-          Alert.alert('Error', 'An unexpected error occurred');
+          showToast('An unexpected error occurred');
+          return;
         }
       }
 
       if (error) {
-        Alert.alert('Signup Failed', error.message);
+        showToast(error.message);
         return;
       }
 
@@ -272,6 +263,7 @@ export default function SignupScreen() {
             city: formData.city,
             state: formData.state,
             zip_code: formData.zipCode,
+            autoimmune_diseases: formData.autoimmuneDiseases,
           })
           .eq('id', data.user.id);
 
@@ -280,15 +272,13 @@ export default function SignupScreen() {
         }
 
         // Save patient profile data
-        const medicalConditionsText = formData.medicalConditions.includes('Other') 
-          ? [...formData.medicalConditions.filter(c => c !== 'Other'), formData.otherCondition].join(', ')
-          : formData.medicalConditions.join(', ');
+        const autoimmuneDiseaseText = formData.autoimmuneDiseases.join(', ');
 
         const { error: patientError } = await supabase
           .from('patients')
           .insert({
             user_id: data.user.id,
-            chronic_conditions: medicalConditionsText,
+            chronic_conditions: autoimmuneDiseaseText,
           });
 
         if (patientError) {
@@ -354,46 +344,34 @@ export default function SignupScreen() {
 
   const renderStep2 = () => (
     <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Medical Conditions</Text>
+      <Text style={styles.stepTitle}>What autoimmune diseases do you have to get started with?</Text>
       <Text style={styles.stepSubtitle}>Select any that apply to you</Text>
 
-      <View style={styles.conditionsContainer}>
-        {MEDICAL_CONDITIONS.map((condition) => (
+      <View style={styles.diseasesContainer}>
+        {AUTOIMMUNE_DISEASES.map((disease) => (
           <TouchableOpacity
-            key={condition}
+            key={disease.name}
             style={[
-              styles.conditionBubble,
-              formData.medicalConditions.includes(condition) && styles.conditionBubbleSelected,
+              styles.diseaseBubble,
+              formData.autoimmuneDiseases.includes(disease.name) && styles.diseaseBubbleSelected,
             ]}
-            onPress={() => handleConditionToggle(condition)}
+            onPress={() => handleDiseaseToggle(disease.name)}
           >
+            <Text style={styles.diseaseEmoji}>{disease.emoji}</Text>
             <Text
               style={[
-                styles.conditionText,
-                formData.medicalConditions.includes(condition) && styles.conditionTextSelected,
+                styles.diseaseText,
+                formData.autoimmuneDiseases.includes(disease.name) && styles.diseaseTextSelected,
               ]}
             >
-              {condition}
+              {disease.name}
             </Text>
-            {formData.medicalConditions.includes(condition) && (
-              <Check color="white" size={16} style={styles.conditionCheck} />
+            {formData.autoimmuneDiseases.includes(disease.name) && (
+              <Check color="white" size={16} style={styles.diseaseCheck} />
             )}
           </TouchableOpacity>
         ))}
       </View>
-
-      {formData.medicalConditions.includes('Other') && (
-        <Animated.View entering={FadeInUp.duration(300)} style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Please specify your condition"
-            placeholderTextColor="#9CA3AF"
-            value={formData.otherCondition}
-            onChangeText={(value) => updateFormData('otherCondition', value)}
-            autoCapitalize="sentences"
-          />
-        </Animated.View>
-      )}
     </Animated.View>
   );
 
@@ -510,8 +488,7 @@ export default function SignupScreen() {
       case 1:
         return !formData.firstName.trim() || !formData.lastName.trim();
       case 2:
-        return formData.medicalConditions.length === 0 || 
-               (formData.medicalConditions.includes('Other') && !formData.otherCondition.trim());
+        return formData.autoimmuneDiseases.length === 0;
       case 3:
         return !formData.address.trim() || !formData.zipCode.trim() || !formData.city || !formData.state;
       case 4:
@@ -545,6 +522,11 @@ export default function SignupScreen() {
             {activeStep === 2 && renderStep2()}
             {activeStep === 3 && renderStep3()}
             {activeStep === 4 && renderStep4()}
+            
+            {activeStep === 2 && (
+              <Text style={styles.moreDiseasesText}>More diseases will be available soon!</Text>
+            )}
+            
             <TouchableOpacity
               style={[styles.button, (isNextDisabled() || loading) && styles.buttonDisabled]}
               onPress={handleNext}
@@ -682,13 +664,14 @@ const styles = StyleSheet.create({
   disabledInput: {
     color: '#9CA3AF',
   },
-  conditionsContainer: {
+  diseasesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 12,
     marginBottom: 24,
   },
-  conditionBubble: {
+  diseaseBubble: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 20,
     paddingHorizontal: 16,
@@ -698,23 +681,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    minWidth: 120,
+    minWidth: 140,
+    justifyContent: 'center',
   },
-  conditionBubbleSelected: {
+  diseaseBubbleSelected: {
     backgroundColor: '#F97316',
     borderColor: 'white',
   },
-  conditionText: {
+  diseaseEmoji: {
+    fontSize: 16,
+  },
+  diseaseText: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     flex: 1,
   },
-  conditionTextSelected: {
+  diseaseTextSelected: {
     color: 'white',
   },
-  conditionCheck: {
+  diseaseCheck: {
     marginLeft: 4,
   },
   zipCodeError: {
@@ -723,6 +710,14 @@ const styles = StyleSheet.create({
     color: '#FCA5A5',
     textAlign: 'center',
     marginTop: 8,
+  },
+  moreDiseasesText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 16,
   },
   button: {
     backgroundColor: '#F97316',

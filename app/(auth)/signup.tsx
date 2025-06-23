@@ -251,7 +251,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       console.log('signing up');
-      console.log(FormData.email);
+      console.log(formData.email);
       // Create user account
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,

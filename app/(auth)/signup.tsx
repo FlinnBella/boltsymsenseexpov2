@@ -678,10 +678,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderWidth: 2,
     borderColor: 'transparent',
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    minWidth: 140,
+    gap: 6,
+    width: 150,
+    height: 80,
     justifyContent: 'center',
   },
   diseaseBubbleSelected: {
@@ -692,17 +692,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   diseaseText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Inter-Medium',
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-    flex: 1,
+    lineHeight: 16,
   },
   diseaseTextSelected: {
     color: 'white',
   },
   diseaseCheck: {
-    marginLeft: 4,
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   zipCodeError: {
     fontSize: 14,

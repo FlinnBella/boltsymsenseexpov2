@@ -5,7 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -116,9 +116,13 @@ export default function AddressAutocomplete({
     }
   };
 
-  const renderSuggestion = ({ item }: { item: Suggestion }) => (
+  const renderSuggestion = (item: Suggestion, index: number) => (
     <TouchableOpacity
-      style={styles.suggestionItem}
+      key={item.place_id}
+      style={[
+        styles.suggestionItem,
+        index === suggestions.length - 1 && styles.lastSuggestionItem
+      ]}
       onPress={() => handleSuggestionSelect(item)}
     >
       <MapPin color="#6B7280" size={16} style={styles.suggestionIcon} />
@@ -145,6 +149,10 @@ export default function AddressAutocomplete({
               setShowSuggestions(true);
             }
           }}
+          onBlur={() => {
+            // Delay hiding suggestions to allow for selection
+            setTimeout(() => setShowSuggestions(false), 150);
+          }}
         />
         {loading && (
           <ActivityIndicator size="small" color="#6B7280" style={styles.loadingIndicator} />
@@ -153,14 +161,14 @@ export default function AddressAutocomplete({
 
       {showSuggestions && suggestions.length > 0 && (
         <View style={styles.suggestionsContainer}>
-          <FlatList
-            data={suggestions}
-            renderItem={renderSuggestion}
-            keyExtractor={(item) => item.place_id}
+          <ScrollView
             style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-          />
+            nestedScrollEnabled={true}
+          >
+            {suggestions.map((item, index) => renderSuggestion(item, index))}
+          </ScrollView>
         </View>
       )}
 
@@ -221,6 +229,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+  },
+  lastSuggestionItem: {
+    borderBottomWidth: 0,
   },
   suggestionIcon: {
     marginRight: 12,

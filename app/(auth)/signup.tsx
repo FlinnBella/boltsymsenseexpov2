@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -43,6 +43,7 @@ interface FormData {
 
 export default function SignupScreen() {
   const [activeStep, setActiveStep] = useState(1);
+  const [previousStep, setPreviousStep] = useState(1);
   const [showVerifiedModal, setShowVerifiedModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [addressAutocompleted, setAddressAutocompleted] = useState(false);
@@ -58,6 +59,29 @@ export default function SignupScreen() {
     password: '',
     confirmPassword: '',
   });
+
+  // Effect to handle address reset when navigating to previous steps
+  useEffect(() => {
+    // If user is navigating to a step before step 3 (i.e., step 1 or 2)
+    // and they were previously on step 3 or later, reset address fields
+    if (activeStep < 3 && previousStep >= 3) {
+      resetAddressFields();
+    }
+    
+    // Update previous step for next navigation
+    setPreviousStep(activeStep);
+  }, [activeStep]);
+
+  const resetAddressFields = () => {
+    setFormData(prev => ({
+      ...prev,
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+    }));
+    setAddressAutocompleted(false);
+  };
 
   const showToast = (message: string) => {
     if (Platform.OS === 'android') {

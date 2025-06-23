@@ -45,6 +45,8 @@ export default function AddressAutocomplete({
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSelectedAddress, setHasSelectedAddress] = useState(false);
+  const [lastSelectedValue, setLastSelectedValue] = useState('');
   const debounceRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
@@ -60,6 +62,20 @@ export default function AddressAutocomplete({
       return;
     }
 
+    // Check if user has manually edited the address after selection
+    if (hasSelectedAddress && value !== lastSelectedValue) {
+      // User is editing the previously selected address
+      setHasSelectedAddress(false);
+      setLastSelectedValue('');
+    }
+
+    // Don't show suggestions if user has already selected an address and hasn't changed it
+    if (hasSelectedAddress && value === lastSelectedValue) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
     // Debounce the API call
     debounceRef.current = setTimeout(async () => {
       await fetchSuggestions(value);
@@ -70,7 +86,7 @@ export default function AddressAutocomplete({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [value]);
+  }, [value, hasSelectedAddress, lastSelectedValue]);
 
   const fetchSuggestions = async (input: string) => {
     try {
@@ -79,7 +95,7 @@ export default function AddressAutocomplete({
       
       const results = await googlePlacesService.getAutocompleteSuggestions(input);
       setSuggestions(results);
-      setShowSuggestions(results.length > 0);
+      setShowSuggestions(results.length > 0 && !hasSelectedAddress);
     } catch (err) {
       console.error('Error fetching suggestions:', err);
       setError('Unable to fetch address suggestions');
@@ -99,21 +115,48 @@ export default function AddressAutocomplete({
       
       // Combine street number and route for full street address
       const streetAddress = `${addressDetails.streetNumber} ${addressDetails.route}`.trim();
+      const finalAddress = streetAddress || addressDetails.formattedAddress;
+      
+      // Mark that user has selected an address
+      setHasSelectedAddress(true);
+      setLastSelectedValue(finalAddress);
       
       onAddressSelect({
-        streetAddress: streetAddress || addressDetails.formattedAddress,
+        streetAddress: finalAddress,
         city: addressDetails.city,
         state: addressDetails.state,
         zipCode: addressDetails.zipCode,
       });
       
-      onChangeText(streetAddress || addressDetails.formattedAddress);
+      onChangeText(finalAddress);
     } catch (err) {
       console.error('Error getting place details:', err);
       setError('Unable to get address details');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTextChange = (text: string) => {
+    onChangeText(text);
+    
+    // If user clears the input or significantly changes it, reset selection state
+    if (hasSelectedAddress && (text.length === 0 || Math.abs(text.length - lastSelectedValue.length) > 5)) {
+      setHasSelectedAddress(false);
+      setLastSelectedValue('');
+    }
+  };
+
+  const handleFocus = () => {
+    // Only show suggestions if user hasn't selected an address or if they've modified it
+    if (!hasSelectedAddress && suggestions.length > 0) {
+      setShowSuggestions(true);
+    }
+  };
+
+  const handleBlur = () => {
+    // Delay hiding suggestions to allow for selection
+    setTimeout(() => setShowSuggestions(false), 150);
   };
 
   const renderSuggestion = (item: Suggestion, index: number) => (
@@ -142,24 +185,17 @@ export default function AddressAutocomplete({
           placeholder={placeholder}
           placeholderTextColor="#9CA3AF"
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={handleTextChange}
           autoCapitalize="words"
-          onFocus={() => {
-            if (suggestions.length > 0) {
-              setShowSuggestions(true);
-            }
-          }}
-          onBlur={() => {
-            // Delay hiding suggestions to allow for selection
-            setTimeout(() => setShowSuggestions(false), 150);
-          }}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
         {loading && (
           <ActivityIndicator size="small" color="#6B7280" style={styles.loadingIndicator} />
         )}
       </View>
 
-      {showSuggestions && suggestions.length > 0 && (
+      {showSuggestions && suggestions.length > 0 && !hasSelectedAddress && (
         <View style={styles.suggestionsContainer}>
           <ScrollView
             style={styles.suggestionsList}

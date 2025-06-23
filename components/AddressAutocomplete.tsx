@@ -8,6 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 import { googlePlacesService } from '@/lib/googlePlaces';
@@ -34,6 +36,8 @@ interface Suggestion {
   };
 }
 
+const { height: screenHeight } = Dimensions.get('window');
+
 export default function AddressAutocomplete({
   value,
   onChangeText,
@@ -47,7 +51,10 @@ export default function AddressAutocomplete({
   const [error, setError] = useState<string | null>(null);
   const [hasSelectedAddress, setHasSelectedAddress] = useState(false);
   const [lastSelectedValue, setLastSelectedValue] = useState('');
+  const [inputLayout, setInputLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [useModal, setUseModal] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout>();
+  const inputRef = useRef<View>(null);
 
   useEffect(() => {
     // Clear previous debounce
@@ -64,7 +71,6 @@ export default function AddressAutocomplete({
 
     // Check if user has manually edited the address after selection
     if (hasSelectedAddress && value !== lastSelectedValue) {
-      // User is editing the previously selected address
       console.log('🔄 User manually edited address after selection');
       console.log('Previous selected value:', lastSelectedValue);
       console.log('New value:', value);
@@ -244,6 +250,24 @@ export default function AddressAutocomplete({
     console.log('Has selected address:', hasSelectedAddress);
     console.log('Suggestions count:', suggestions.length);
     
+    // Measure input position for dropdown placement
+    if (inputRef.current) {
+      inputRef.current.measureInWindow((x, y, width, height) => {
+        console.log('📐 Input layout measured:', { x, y, width, height });
+        setInputLayout({ x, y, width, height });
+        
+        // Determine if we should use modal based on available space
+        const spaceBelow = screenHeight - (y + height);
+        const shouldUseModal = spaceBelow < 250; // Not enough space for dropdown
+        
+        console.log('📱 Screen height:', screenHeight);
+        console.log('📏 Space below input:', spaceBelow);
+        console.log('🎭 Use modal:', shouldUseModal);
+        
+        setUseModal(shouldUseModal);
+      });
+    }
+    
     // Only show suggestions if user hasn't selected an address or if they've modified it
     if (!hasSelectedAddress && suggestions.length > 0) {
       console.log('📋 Showing suggestions on focus');
@@ -257,7 +281,7 @@ export default function AddressAutocomplete({
     setTimeout(() => {
       console.log('📋 Hiding suggestions after blur delay');
       setShowSuggestions(false);
-    }, 150);
+    }, 200);
   };
 
   const renderSuggestion = (item: Suggestion, index: number) => (
@@ -271,6 +295,7 @@ export default function AddressAutocomplete({
         console.log(`🖱️ Suggestion ${index + 1} pressed:`, item.description);
         handleSuggestionSelect(item);
       }}
+      activeOpacity={0.7}
     >
       <MapPin color="#6B7280" size={16} style={styles.suggestionIcon} />
       <View style={styles.suggestionText}>
@@ -280,9 +305,72 @@ export default function AddressAutocomplete({
     </TouchableOpacity>
   );
 
+  const renderSuggestionsList = () => (
+    <ScrollView
+      style={styles.suggestionsList}
+      keyboardShouldPersistTaps="always"
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+      bounces={false}
+    >
+      {suggestions.map((item, index) => renderSuggestion(item, index))}
+    </ScrollView>
+  );
+
+  const renderDropdown = () => {
+    if (!showSuggestions || suggestions.length === 0 || hasSelectedAddress) {
+      return null;
+    }
+
+    if (useModal) {
+      // Use modal for better touch handling when space is limited
+      return (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowSuggestions(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSuggestions(false)}
+          >
+            <View
+              style={[
+                styles.modalSuggestionsContainer,
+                {
+                  top: inputLayout.y + inputLayout.height + 8,
+                  left: inputLayout.x,
+                  width: inputLayout.width,
+                }
+              ]}
+            >
+              {renderSuggestionsList()}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      );
+    }
+
+    // Use absolute positioning for normal dropdown
+    return (
+      <View style={styles.suggestionsContainer}>
+        {renderSuggestionsList()}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.inputContainer}>
+      <View 
+        ref={inputRef}
+        style={styles.inputContainer}
+        onLayout={(event) => {
+          const { x, y, width, height } = event.nativeEvent.layout;
+          console.log('📐 Input container layout:', { x, y, width, height });
+        }}
+      >
         <MapPin color="#6B7280" size={20} style={styles.inputIcon} />
         <TextInput
           style={styles.input}
@@ -299,18 +387,7 @@ export default function AddressAutocomplete({
         )}
       </View>
 
-      {showSuggestions && suggestions.length > 0 && !hasSelectedAddress && (
-        <View style={styles.suggestionsContainer}>
-          <ScrollView
-            style={styles.suggestionsList}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled={true}
-          >
-            {suggestions.map((item, index) => renderSuggestion(item, index))}
-          </ScrollView>
-        </View>
-      )}
+      {renderDropdown()}
 
       {error && (
         <Text style={styles.errorText}>{error}</Text>
@@ -326,6 +403,7 @@ export default function AddressAutocomplete({
           <Text style={styles.debugText}>Show Suggestions: {showSuggestions ? 'Yes' : 'No'}</Text>
           <Text style={styles.debugText}>Suggestions Count: {suggestions.length}</Text>
           <Text style={styles.debugText}>Loading: {loading ? 'Yes' : 'No'}</Text>
+          <Text style={styles.debugText}>Use Modal: {useModal ? 'Yes' : 'No'}</Text>
           <Text style={styles.debugText}>Error: {error || 'None'}</Text>
         </View>
       )}
@@ -366,23 +444,55 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     maxHeight: 200,
-    elevation: 8,
+    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     zIndex: 1001,
+    ...Platform.select({
+      android: {
+        elevation: 10,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      web: {
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      },
+    }),
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  modalSuggestionsContainer: {
+    position: 'absolute',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    maxHeight: 200,
+    elevation: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    zIndex: 1002,
   },
   suggestionsList: {
     borderRadius: 12,
+    maxHeight: 200,
   },
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+    backgroundColor: 'white',
   },
   lastSuggestionItem: {
     borderBottomWidth: 0,

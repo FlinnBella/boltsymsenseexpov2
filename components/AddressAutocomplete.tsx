@@ -65,6 +65,9 @@ export default function AddressAutocomplete({
     // Check if user has manually edited the address after selection
     if (hasSelectedAddress && value !== lastSelectedValue) {
       // User is editing the previously selected address
+      console.log('🔄 User manually edited address after selection');
+      console.log('Previous selected value:', lastSelectedValue);
+      console.log('New value:', value);
       setHasSelectedAddress(false);
       setLastSelectedValue('');
     }
@@ -93,11 +96,17 @@ export default function AddressAutocomplete({
       setLoading(true);
       setError(null);
       
+      console.log('🔍 Fetching suggestions for input:', input);
+      
       const results = await googlePlacesService.getAutocompleteSuggestions(input);
+      
+      console.log('📍 Received suggestions:', results.length);
+      console.log('Suggestions:', results.map(r => r.description));
+      
       setSuggestions(results);
       setShowSuggestions(results.length > 0 && !hasSelectedAddress);
     } catch (err) {
-      console.error('Error fetching suggestions:', err);
+      console.error('❌ Error fetching suggestions:', err);
       setError('Unable to fetch address suggestions');
       setSuggestions([]);
       setShowSuggestions(false);
@@ -107,14 +116,34 @@ export default function AddressAutocomplete({
   };
 
   const handleSuggestionSelect = async (suggestion: Suggestion) => {
+    console.log('🎯 DROPDOWN OPTION SELECTED');
+    console.log('==========================================');
+    console.log('Selected suggestion:', {
+      place_id: suggestion.place_id,
+      description: suggestion.description,
+      main_text: suggestion.structured_formatting.main_text,
+      secondary_text: suggestion.structured_formatting.secondary_text,
+    });
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('==========================================');
+
     try {
       setLoading(true);
       setShowSuggestions(false);
       
-      console.log('Selected suggestion:', suggestion.description);
+      console.log('🔄 Fetching detailed address information...');
       
       const addressDetails = await googlePlacesService.getPlaceDetails(suggestion.place_id);
-      console.log('Address details from Google:', addressDetails);
+      
+      console.log('📋 Raw address details from Google Places API:', {
+        formatted_address: addressDetails.formattedAddress,
+        street_number: addressDetails.streetNumber,
+        route: addressDetails.route,
+        city: addressDetails.city,
+        state: addressDetails.state,
+        zip_code: addressDetails.zipCode,
+        country: addressDetails.country,
+      });
       
       // Improved address parsing logic
       let streetAddress = '';
@@ -122,11 +151,14 @@ export default function AddressAutocomplete({
       // Try to construct street address from components
       if (addressDetails.streetNumber && addressDetails.route) {
         streetAddress = `${addressDetails.streetNumber} ${addressDetails.route}`;
+        console.log('✅ Street address constructed from number + route:', streetAddress);
       } else if (addressDetails.route) {
         streetAddress = addressDetails.route;
+        console.log('⚠️ Street address using route only (no number):', streetAddress);
       } else {
         // Fallback to using the main text from the suggestion
         streetAddress = suggestion.structured_formatting.main_text;
+        console.log('🔄 Fallback to suggestion main text:', streetAddress);
       }
       
       // Ensure we have all required components
@@ -137,60 +169,95 @@ export default function AddressAutocomplete({
         zipCode: addressDetails.zipCode || '',
       };
       
-      console.log('Parsed address data:', addressData);
+      console.log('🏠 Final parsed address data:', addressData);
       
       // Validate that we have the essential components
       if (!addressData.streetAddress) {
+        console.error('❌ Validation failed: Missing street address');
         throw new Error('Unable to parse street address');
       }
       
       if (!addressData.city || !addressData.state) {
+        console.error('❌ Validation failed: Missing city or state');
+        console.log('City:', addressData.city);
+        console.log('State:', addressData.state);
         throw new Error('Unable to parse city or state information');
       }
+      
+      console.log('✅ Address validation passed');
       
       // Mark that user has selected an address
       setHasSelectedAddress(true);
       setLastSelectedValue(addressData.streetAddress);
       
+      console.log('🔒 Address selection state updated');
+      console.log('hasSelectedAddress: true');
+      console.log('lastSelectedValue:', addressData.streetAddress);
+      
       // Update the input field
+      console.log('📝 Updating input field with:', addressData.streetAddress);
       onChangeText(addressData.streetAddress);
       
       // Call the callback to update form data
-      console.log('Calling onAddressSelect with:', addressData);
+      console.log('📤 Calling onAddressSelect callback with address data');
       onAddressSelect(addressData);
       
+      console.log('🎉 Address selection completed successfully');
+      console.log('==========================================');
+      
     } catch (err) {
-      console.error('Error getting place details:', err);
+      console.error('❌ ERROR during address selection:');
+      console.error('Error details:', err);
+      console.error('Suggestion that caused error:', suggestion);
+      console.error('==========================================');
+      
       setError('Unable to get complete address details. Please try another address.');
       
       // Reset selection state on error
       setHasSelectedAddress(false);
       setLastSelectedValue('');
+      
+      console.log('🔄 Reset selection state due to error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleTextChange = (text: string) => {
+    console.log('⌨️ Text input changed:', text);
+    console.log('Previous value:', value);
+    console.log('Has selected address:', hasSelectedAddress);
+    
     onChangeText(text);
     
     // If user clears the input or significantly changes it, reset selection state
     if (hasSelectedAddress && (text.length === 0 || Math.abs(text.length - lastSelectedValue.length) > 5)) {
+      console.log('🔄 Resetting selection state due to significant text change');
+      console.log('Text length change:', Math.abs(text.length - lastSelectedValue.length));
       setHasSelectedAddress(false);
       setLastSelectedValue('');
     }
   };
 
   const handleFocus = () => {
+    console.log('👁️ Input focused');
+    console.log('Has selected address:', hasSelectedAddress);
+    console.log('Suggestions count:', suggestions.length);
+    
     // Only show suggestions if user hasn't selected an address or if they've modified it
     if (!hasSelectedAddress && suggestions.length > 0) {
+      console.log('📋 Showing suggestions on focus');
       setShowSuggestions(true);
     }
   };
 
   const handleBlur = () => {
+    console.log('👁️ Input blurred');
     // Delay hiding suggestions to allow for selection
-    setTimeout(() => setShowSuggestions(false), 150);
+    setTimeout(() => {
+      console.log('📋 Hiding suggestions after blur delay');
+      setShowSuggestions(false);
+    }, 150);
   };
 
   const renderSuggestion = (item: Suggestion, index: number) => (
@@ -200,7 +267,10 @@ export default function AddressAutocomplete({
         styles.suggestionItem,
         index === suggestions.length - 1 && styles.lastSuggestionItem
       ]}
-      onPress={() => handleSuggestionSelect(item)}
+      onPress={() => {
+        console.log(`🖱️ Suggestion ${index + 1} pressed:`, item.description);
+        handleSuggestionSelect(item);
+      }}
     >
       <MapPin color="#6B7280" size={16} style={styles.suggestionIcon} />
       <View style={styles.suggestionText}>
@@ -244,6 +314,20 @@ export default function AddressAutocomplete({
 
       {error && (
         <Text style={styles.errorText}>{error}</Text>
+      )}
+
+      {/* Debug Panel - Only visible in development */}
+      {__DEV__ && (
+        <View style={styles.debugPanel}>
+          <Text style={styles.debugTitle}>🐛 Debug Info</Text>
+          <Text style={styles.debugText}>Input Value: "{value}"</Text>
+          <Text style={styles.debugText}>Has Selected: {hasSelectedAddress ? 'Yes' : 'No'}</Text>
+          <Text style={styles.debugText}>Last Selected: "{lastSelectedValue}"</Text>
+          <Text style={styles.debugText}>Show Suggestions: {showSuggestions ? 'Yes' : 'No'}</Text>
+          <Text style={styles.debugText}>Suggestions Count: {suggestions.length}</Text>
+          <Text style={styles.debugText}>Loading: {loading ? 'Yes' : 'No'}</Text>
+          <Text style={styles.debugText}>Error: {error || 'None'}</Text>
+        </View>
       )}
     </View>
   );
@@ -326,5 +410,23 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     marginTop: 4,
     marginLeft: 16,
+  },
+  debugPanel: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  debugTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#00FF00',
+    marginBottom: 4,
+  },
+  debugText: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    marginBottom: 2,
   },
 });

@@ -13,10 +13,9 @@ import {
 } from 'react-native';
 import { X, Save } from 'lucide-react-native';
 import { UserProfile, PatientProfile, updateUserProfile, createOrUpdatePatientProfile } from '@/lib/api/profile';
-
+import { useUserData } from '@/hooks/useUserData';
 
 // TODO:  FIGURE THE SLOP OUT LATER
-
 
 interface ProfileEditModalProps {
   visible: boolean;
@@ -26,8 +25,6 @@ interface ProfileEditModalProps {
   onSave: () => void;
 }
 
-
-
 export default function ProfileEditModal({
   visible,
   onClose,
@@ -36,6 +33,7 @@ export default function ProfileEditModal({
   onSave,
 }: ProfileEditModalProps) {
   const [loading, setLoading] = useState(false);
+  const { refreshUserData } = useUserData();
   const [formData, setFormData] = useState({
     // User profile fields
     first_name: userProfile.first_name || '',
@@ -124,6 +122,9 @@ export default function ProfileEditModal({
       };
 
       await createOrUpdatePatientProfile(userProfile.id, patientUpdates);
+
+      // Refresh UserContext data
+      await refreshUserData();
 
       Alert.alert('Success', 'Profile updated successfully');
       onSave();

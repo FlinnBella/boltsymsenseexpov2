@@ -247,92 +247,101 @@ export default function SignupScreen() {
     }
   };
 
+  const rollbackSignup = async (userId?: string) => {
+    if (userId) {
+      try {
+        // Delete from patients table first (due to foreign key)
+        await supabase.from('patients').delete().eq('user_id', userId);
+        // Delete from users table
+        await supabase.from('users').delete().eq('id', userId);
+        // Delete from auth
+        await supabase.auth.admin.deleteUser(userId);
+      } catch (error) {
+        console.error('Error during rollback:', error);
+      }
+    }
+  };
+
   const handleSignup = async () => {
     setLoading(true);
+    let createdUserId: string | null = null;
+    
     try {
-      console.log('signing up');
+      console.log('Starting signup process');
       console.log(formData.email);
+      
       // Create user account
-      const { data, error } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
       });
       
-      const signupData = data;
-      console.log(signupData)
-      
-      if (signupData) {
-        try {
-          const { data, error: userError } = await supabase.from('users').upsert({
-            id: signupData.user?.id,
-            email: signupData.user?.email,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            zip_code: formData.zipCode,
-            city: formData.city,
-            state: formData.state,
-            address_line_1: formData.address,
-            autoimmune_diseases: formData.autoimmuneDiseases,
-          });
-          console.log('public users update success');
-          console.log(data);
-          
-          if (userError) {
-            showToast(userError.message);
-            return;
-          }
-        } catch (error) {
-          showToast('An unexpected error occurred');
-          return;
-        }
+      if (authError) {
+        throw new Error(`Auth error: ${authError.message}`);
       }
 
-      if (error) {
-        showToast(error.message);
-        return;
+      if (!authData.user) {
+        throw new Error('No user returned from auth signup');
       }
 
-      //if (data.user) {
-      //  // Save user profile data
-      //  const { error: profileError } = await supabase
-      //    .from('users')
-      //    .update({
-      //      first_name: formData.firstName,
-      //      last_name: formData.lastName,
-      //      address_line_1: formData.address,
-      //      city: formData.city,
-      //      state: formData.state,
-      //      zip_code: formData.zipCode,
-      //      autoimmune_diseases: formData.autoimmuneDiseases,
-      //    })
-      //    .eq('id', data.user.id);
-//
-      //  if (profileError) {
-      //    console.error('Profile update error:', profileError);
-      //  }
-//
-      //  // Save patient profile data
-      //  const autoimmuneDiseaseText = formData.autoimmuneDiseases.join(', ');
-//
-      //  const { error: patientError } = await supabase
-      //    .from('patients')
-      //    .insert({
-      //      user_id: data.user.id,
-      //      chronic_conditions: autoimmuneDiseaseText,
-      //    });
-//
-      //  if (patientError) {
-      //    console.error('Patient profile error:', patientError);
-      //  }
-//
-      //  setShowVerifiedModal(true);
-      //}
+      createdUserId = authData.user.id;
+      console.log('Auth user created:', createdUserId);
+
+      // Update user profile in users table
+      const { error: userError } = await supabase.from('users').upsert({
+        id: authData.user.id,
+        email: authData.user.email,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        zip_code: formData.zipCode,
+        city: formData.city,
+        state: formData.state,
+        address_line_1: formData.address,
+        autoimmune_diseases: formData.autoimmuneDiseases,
+      });
+
+      if (userError) {
+        throw new Error(`User profile error: ${userError.message}`);
+      }
+
+      console.log('User profile updated successfully');
+
+      // Save patient profile data
+      const autoimmuneDiseaseText = formData.autoimmuneDiseases.join(', ');
+
+      const { error: patientError } = await supabase
+        .from('patients')
+        .insert({
+          user_id: authData.user.id,
+          chronic_conditions: autoimmuneDiseaseText,
+        });
+
+      if (patientError) {
+        throw new Error(`Patient profile error: ${patientError.message}`);
+      }
+
+      console.log('Patient profile created successfully');
+
+      // All operations successful
+      setLoading(false);
+      setShowVerifiedModal(true);
+
     } catch (error) {
       console.error('Signup error:', error);
-      showToast('An unexpected error occurred');
-    } finally {
       setLoading(false);
+      
+      // Rollback any created data
+      if (createdUserId) {
+        await rollbackSignup(createdUserId);
+      }
+      
+      showToast(`Signup failed: ${error instanceof Error ? error.message : 'An unexpected error occurred'}`);
     }
+  };
+
+  const handleModalClose = () => {
+    setShowVerifiedModal(false);
+    router.push('/(auth)/login');
   };
 
   const renderProgressBar = () => (
@@ -619,10 +628,7 @@ export default function SignupScreen() {
 
       <VerifiedModal
         visible={showVerifiedModal}
-        onClose={() => {
-          setShowVerifiedModal(false);
-          router.push('/(auth)/login');
-        }}
+        onClose={handleModalClose}
       />
     </LinearGradient>
   );

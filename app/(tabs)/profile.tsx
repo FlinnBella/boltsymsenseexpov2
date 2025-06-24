@@ -25,7 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUserData } from '@/hooks/useUserData';
 
 export default function ProfileScreen() {
-  const { userData, setUserData } = useUserData();
+  const { userData, clearUserData } = useUserData();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -49,8 +49,6 @@ export default function ProfileScreen() {
       console.log('User:', userData);
       if (!userData) return;
 
-      setUserData(userData);
-      
       const profile = await getUserProfile(userData.id);
       console.log('Profile:', profile);
       setUserProfile(profile);
@@ -222,8 +220,8 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Clear preferences from AsyncStorage
-              //await clearUserPreferences();
+              // Clear UserContext data
+              await clearUserData();
               // Sign out from Supabase
               await supabase.auth.signOut();
               // Clear auth token

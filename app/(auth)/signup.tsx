@@ -251,6 +251,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       console.log('signing up');
+      console.log(formData.email);
       // Create user account
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
@@ -262,7 +263,7 @@ export default function SignupScreen() {
       
       if (signupData) {
         try {
-          const { data, error: userError } = await supabase.from('users').insert({
+          const { data, error: userError } = await supabase.from('users').upsert({
             id: signupData.user?.id,
             email: signupData.user?.email,
             first_name: formData.firstName,
@@ -291,41 +292,41 @@ export default function SignupScreen() {
         return;
       }
 
-      if (data.user) {
-        // Save user profile data
-        const { error: profileError } = await supabase
-          .from('users')
-          .update({
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            address_line_1: formData.address,
-            city: formData.city,
-            state: formData.state,
-            zip_code: formData.zipCode,
-            autoimmune_diseases: formData.autoimmuneDiseases,
-          })
-          .eq('id', data.user.id);
-
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-        }
-
-        // Save patient profile data
-        const autoimmuneDiseaseText = formData.autoimmuneDiseases.join(', ');
-
-        const { error: patientError } = await supabase
-          .from('patients')
-          .insert({
-            user_id: data.user.id,
-            chronic_conditions: autoimmuneDiseaseText,
-          });
-
-        if (patientError) {
-          console.error('Patient profile error:', patientError);
-        }
-
-        setShowVerifiedModal(true);
-      }
+      //if (data.user) {
+      //  // Save user profile data
+      //  const { error: profileError } = await supabase
+      //    .from('users')
+      //    .update({
+      //      first_name: formData.firstName,
+      //      last_name: formData.lastName,
+      //      address_line_1: formData.address,
+      //      city: formData.city,
+      //      state: formData.state,
+      //      zip_code: formData.zipCode,
+      //      autoimmune_diseases: formData.autoimmuneDiseases,
+      //    })
+      //    .eq('id', data.user.id);
+//
+      //  if (profileError) {
+      //    console.error('Profile update error:', profileError);
+      //  }
+//
+      //  // Save patient profile data
+      //  const autoimmuneDiseaseText = formData.autoimmuneDiseases.join(', ');
+//
+      //  const { error: patientError } = await supabase
+      //    .from('patients')
+      //    .insert({
+      //      user_id: data.user.id,
+      //      chronic_conditions: autoimmuneDiseaseText,
+      //    });
+//
+      //  if (patientError) {
+      //    console.error('Patient profile error:', patientError);
+      //  }
+//
+      //  setShowVerifiedModal(true);
+      //}
     } catch (error) {
       console.error('Signup error:', error);
       showToast('An unexpected error occurred');

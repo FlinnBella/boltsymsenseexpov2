@@ -47,7 +47,7 @@ export default function ProfileScreen() {
       //const { data } = await supabase.auth.getUser();
       console.log('User:', userData);
       if (!userData) {
-              const { data: { user } } = await supabase.auth.getUser()      
+              const { data: { user } } = await getSession().session.user;   
       };
       console.log("Data", data);
       const profile = await getUserProfile(userData.id);

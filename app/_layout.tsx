@@ -27,14 +27,7 @@ import  UserProvider  from '@/app/contexts/UserContext';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  // this is to prevent navigation until app is ready 
-  setTimeout(() => {
-  }, 1);
-
-
   useFrameworkReady();
-  //const router = useRouter();
-  //const segments = useSegments();
 
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Regular': Inter_400Regular,
@@ -57,9 +50,7 @@ export default function RootLayout() {
     registerForPushNotificationsAsync();
   }, []);
 
-
-
-  if (!fontsLoaded ? !fontError : null) {
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 

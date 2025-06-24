@@ -38,21 +38,19 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadUserData();
     loadPreferences();
-  }, );
+  }, [userData]);
 
   
 
   const loadUserData = async () => {
     try {
-      //const { data } = await supabase.auth.getUser();
-      console.log('User:', userData);
       if (!userData) {
-              const {
-              data: { session },
-              error
-              } = await supabase.auth.getSession().session.user;
-      };
-      console.log("Data", data);
+        setLoading(false);
+        return;
+      }
+
+      console.log('User:', userData);
+      
       const profile = await getUserProfile(userData.id);
       console.log('Profile:', profile);
       setUserProfile(profile);
@@ -98,10 +96,9 @@ export default function ProfileScreen() {
 
   const loadTerraConnections = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userData) return;
 
-      const connections = await getTerraConnections(user.id);
+      const connections = await getTerraConnections(userData.id);
       setTerraConnections(connections);
     } catch (error) {
       console.error('Error loading Terra connections:', error);

@@ -38,8 +38,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadUserData();
     loadPreferences();
-    loadTerraConnections();
-  }, []);
+  }, );
 
   
 

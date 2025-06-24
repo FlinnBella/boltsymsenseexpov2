@@ -44,12 +44,12 @@ export default function ProfileScreen() {
 
   const loadUserData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      //const { data } = await supabase.auth.getUser();
       console.log('User:', userData);
       if (!userData) {
-            const { data: userData } = await supabase.auth.getUser();
+              const { data } = await supabase.auth.getUser();
       };
-
+      console.log(data);
       const profile = await getUserProfile(userData.id);
       console.log('Profile:', profile);
       setUserProfile(profile);

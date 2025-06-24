@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');

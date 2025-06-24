@@ -263,25 +263,49 @@ export default function SignupScreen() {
       
       if (signupData) {
         try {
-          const { data, error: userError } = await supabase.from('users').upsert({
-            id: signupData.user?.id,
-            email: signupData.user?.email,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            zip_code: formData.zipCode,
-            city: formData.city,
-            state: formData.state,
-            address_line_1: formData.address,
-            autoimmune_diseases: formData.autoimmuneDiseases,
-          });
+            // First, check if a user already exists in public.users
+            const { data: existingUsers, error: lookupError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', formData.email)
+            .limit(1);
+            
+          if (lookupError) {
+            showToast('Failed to check for existing user');
+            console.error(lookupError);
+            return;
+          }
+        
+          if (existingUsers.length > 0) {
+            showToast('An account with this email already exists.');
+            return;
+          }
+        
+              console.log('formData', formData);
+          const { data, error: userError } = await supabase
+            .from('users')
+            .insert({
+              id: signupData.user?.id,
+              email: signupData.user?.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              zip_code: formData.zipCode,
+              city: formData.city,
+              state: formData.state,
+              address_line_1: formData.address,
+              autoimmune_diseases: formData.autoimmuneDiseases,
+            });
+            setShowVerifiedModal(true);
           console.log('public users update success');
           console.log(data);
+
           
           if (userError) {
             showToast(userError.message);
             return;
           }
         } catch (error) {
+          console.error('Signup error:', error);
           showToast('An unexpected error occurred');
           return;
         }

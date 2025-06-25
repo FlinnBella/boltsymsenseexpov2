@@ -8,11 +8,10 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
-  Button,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Bot, User, Phone, Mail, MapPin } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Send, Bot, User, Loader } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
@@ -26,56 +25,23 @@ const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-4
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
-  content: string;
+  text: string;
+  isUser: boolean;
   timestamp: Date;
 }
 
-export interface DoctorApiResponse {
-  result_count: number;
-  results: Doctor[];
-}
-
-export interface Doctor {
-  basic: {
-    first_name: string;
-    last_name: string;
-    name: string;
-    credential: string;
-  };
-  addresses: Array<{
-    address_1: string;
-    address_2?: string;
-    city: string;
-    state: string;
-    postal_code: string;
-  }>;
-  practiceLocations: Array<{
-    address_1: string;
-    address_2?: string;
-    city: string;
-    state: string;
-    postal_code: string;
-  }>;
-  taxonomies: Array<{
-    desc: string;
-    primary: boolean;
-  }>;
-}
-
-
-export default function AIAssistantScreen() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
+export default function AIScreen() {
+  const { userData } = useUserData();
+  const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      role: 'assistant',
-      content: 'Hello! I\'m your AI health assistant. I can help you with general health questions, symptom tracking, and wellness tips. How can I assist you today?',
+      text: 'Hello! I\'m your AI health assistant. I can help you with health questions, medication reminders, and wellness tips. How can I assist you today?',
+      isUser: false,
       timestamp: new Date(),
     },
   ]);
   const [inputText, setInputText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const textInputRef = useRef<TextInput>(null);
   const userProfile = useUserProfile();
@@ -148,26 +114,25 @@ export default function AIAssistantScreen() {
   };
 
   const sendMessage = async () => {
-    if (!inputText.trim() || loading) return;
+    if (!inputText.trim() || isLoading) return;
 
-    const userMessage: ChatMessage = {
+    const userMessage: Message = {
       id: Date.now().toString(),
-      role: 'user',
-      content: inputText.trim(),
+      text: inputText.trim(),
+      isUser: true,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
-    setLoading(true);
+    setIsLoading(true);
 
-    try {
-      const responseContent = await sendMessageToWebhook(userMessage.content);
-      
-      const assistantMessage: ChatMessage = {
+    // Simulate AI response
+    setTimeout(() => {
+      const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: responseContent,
+        text: getAIResponse(userMessage.text),
+        isUser: false,
         timestamp: new Date(),
       };
 
@@ -354,57 +319,59 @@ export default function AIAssistantScreen() {
     );
   };
 
-  const renderMessage = (message: ChatMessage, index: number) => {
-    const isUser = message.role === 'user';
-
-    return (
-      <Animated.View
-        key={message.id}
-        entering={FadeInRight.delay(index * 100).duration(400)}
-        style={[
-          styles.messageContainer,
-          isUser ? styles.userMessageContainer : styles.assistantMessageContainer,
-        ]}
-      >
+  const MessageBubble = ({ message }: { message: Message }) => (
+    <Animated.View
+      entering={FadeInRight.delay(100).duration(400)}
+      style={[
+        styles.messageBubble,
+        message.isUser ? styles.userMessage : styles.aiMessage,
+      ]}
+    >
+      <View style={styles.messageHeader}>
         <View style={[
-          styles.messageBubble,
-          isUser ? styles.userMessage : styles.assistantMessage,
+          styles.messageIcon,
+          { backgroundColor: message.isUser ? '#3B82F6' : '#10B981' }
         ]}>
-          {!isUser ? (
-            <View style={styles.messageHeader}>
-              <Bot color="#3B82F6" size={16} />
-              <Text style={styles.messageRole}>AI Assistant</Text>
-            </View>
-          ) : null}
-          
-          <Text style={[
-            styles.messageText,
-            isUser ? styles.userMessageText : styles.assistantMessageText,
-          ]}>
-            {message.content}
-          </Text>
-          
-          <Text style={[
-            styles.messageTime,
-            isUser ? styles.userMessageTime : styles.assistantMessageTime,
-          ]}>
-            {formatTime(message.timestamp)}
-          </Text>
+          {message.isUser ? (
+            <User color="white" size={16} />
+          ) : (
+            <Bot color="white" size={16} />
+          )}
         </View>
-      </Animated.View>
-    );
-  };
+        <Text style={styles.messageTime}>
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+      <Text style={[
+        styles.messageText,
+        message.isUser ? styles.userMessageText : styles.aiMessageText
+      ]}>
+        {message.text}
+      </Text>
+    </Animated.View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-        <Text style={styles.title}>AI Health Assistant</Text>
-        <Text style={styles.subtitle}>Get personalized health guidance</Text>
+        <LinearGradient colors={['#10B981', '#059669']} style={styles.headerGradient}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerIcon}>
+              <Bot color="white" size={28} />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>AI Health Assistant</Text>
+              <Text style={styles.headerSubtitle}>Your personal health companion</Text>
+            </View>
+          </View>
+        </LinearGradient>
       </Animated.View>
 
+      {/* Messages */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.chatContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <ScrollView
@@ -413,73 +380,61 @@ export default function AIAssistantScreen() {
           contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
         >
-          {messages.map((message, index) => renderMessage(message, index))}
+          {messages.map((message) => (
+            <MessageBubble key={message.id} message={message} />
+          ))}
           
-          {doctors.length > 0 && renderDoctorList(doctors)}
-          
-          {loading ? (
+          {isLoading && (
             <Animated.View
-              entering={FadeInRight.duration(400)}
-              style={[styles.messageContainer, styles.assistantMessageContainer]}
+              entering={FadeInRight.delay(100).duration(400)}
+              style={[styles.messageBubble, styles.aiMessage]}
             >
-              <View style={[styles.messageBubble, styles.assistantMessage]}>
-                <View style={styles.messageHeader}>
-                  <Bot color="#3B82F6" size={16} />
-                  <Text style={styles.messageRole}>AI Assistant</Text>
+              <View style={styles.messageHeader}>
+                <View style={[styles.messageIcon, { backgroundColor: '#10B981' }]}>
+                  <Bot color="white" size={16} />
                 </View>
-                <View style={styles.typingIndicator}>
-                  <View style={styles.typingDot} />
-                  <View style={styles.typingDot} />
-                  <View style={styles.typingDot} />
-                </View>
+                <Text style={styles.messageTime}>Now</Text>
+              </View>
+              <View style={styles.loadingContainer}>
+                <Loader color="#6B7280" size={16} />
+                <Text style={styles.loadingText}>AI is thinking...</Text>
               </View>
             </Animated.View>
-          ) : null}
+          )}
         </ScrollView>
-          <View>
-            {/*Need to update this to enable button regardless of function return */}
-            <TouchableOpacity 
-              style={[styles.findDoctorsButton, loading && styles.findDoctorsButtonDisabled]}
-              onPress={async () => {
-                setLoading(true);
-                await fetchAndRenderDoctors();
-              }}
-              disabled={loading}>
-              <MapPin color="#3B82F6" size={16} />
-              <Text style={styles.findDoctorsButtonText}>Locate Doctors near you</Text>
+
+        {/* Input */}
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ask me about your health..."
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={500}
+              editable={!isLoading}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isLoading) && styles.sendButtonDisabled
+              ]}
+              onPress={sendMessage}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <Send color="white" size={20} />
             </TouchableOpacity>
           </View>
-        <View style={styles.inputContainer}>
-          <TextInput
-            ref={textInputRef}
-            style={styles.textInput}
-            placeholder="Ask about your health..."
-            placeholderTextColor="#9CA3AF"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={500}
-            onSubmitEditing={sendMessage}
-            blurOnSubmit={false}
-            keyboardType="default"
-            returnKeyType="send"
-            enablesReturnKeyAutomatically={true}
-            textAlignVertical="top"
-            onFocus={() => {
-              setTimeout(() => {
-                scrollViewRef.current?.scrollToEnd({ animated: true });
-              }, 100);
-            }}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!inputText.trim() || loading) ? styles.sendButtonDisabled : null]}
-            onPress={sendMessage}
-            disabled={!inputText.trim() || loading}
-          >
-            <Send color="white" size={20} />
-          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Disclaimer */}
+      <View style={styles.disclaimer}>
+        <Text style={styles.disclaimerText}>
+          This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
+        </Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -490,208 +445,150 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   header: {
+    marginBottom: 16,
+  },
+  headerGradient: {
+    paddingTop: 20,
+    paddingBottom: 24,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: 'white',
   },
-  title: {
-    fontSize: 24,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    color: '#1F2937',
+    color: 'white',
   },
-  subtitle: {
+  headerSubtitle: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    marginTop: 4,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
   },
   chatContainer: {
     flex: 1,
   },
   messagesContainer: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   messagesContent: {
-    padding: 16,
     paddingBottom: 20,
   },
-  messageContainer: {
-    marginBottom: 16,
-  },
-  userMessageContainer: {
-    alignItems: 'flex-end',
-  },
-  assistantMessageContainer: {
-    alignItems: 'flex-start',
-  },
   messageBubble: {
-    maxWidth: '80%',
-    borderRadius: 16,
-    padding: 12,
+    marginBottom: 16,
+    maxWidth: '85%',
   },
   userMessage: {
-    backgroundColor: '#3B82F6',
+    alignSelf: 'flex-end',
   },
-  assistantMessage: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  }, 
+  aiMessage: {
+    alignSelf: 'flex-start',
+  },
   messageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  messageRole: {
+  messageIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  messageTime: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#3B82F6',
-    marginLeft: 4,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
   },
   messageText: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     lineHeight: 22,
+    padding: 16,
+    borderRadius: 16,
   },
   userMessageText: {
+    backgroundColor: '#3B82F6',
     color: 'white',
   },
-  assistantMessageText: {
+  aiMessageText: {
+    backgroundColor: 'white',
     color: '#1F2937',
   },
-  messageTime: {
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    marginTop: 8,
-  },
-  userMessageTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  assistantMessageTime: {
-    color: '#9CA3AF',
-  },
-  typingIndicator: {
+  loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 16,
   },
-  typingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#9CA3AF',
+  loadingText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    marginLeft: 8,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
   textInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
+    color: '#1F2937',
     maxHeight: 100,
-    marginRight: 12,
+    paddingVertical: 8,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 8,
   },
   sendButtonDisabled: {
     backgroundColor: '#9CA3AF',
   },
-  doctorListContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    maxWidth: '95%',
+  disclaimer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FEF3C7',
+    borderTopWidth: 1,
+    borderTopColor: '#F59E0B',
   },
-  doctorListTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins-Bold',
-    color: '#1F2937',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  doctorCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  doctorHeader: {
-    marginBottom: 12,
-  },
-  doctorName: {
-    fontSize: 18,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  doctorSpecialty: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#3B82F6',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  doctorInfo: {
-    gap: 8,
-  },
-  doctorInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  doctorInfoText: {
-    fontSize: 14,
+  disclaimerText: {
+    fontSize: 12,
     fontFamily: 'Inter-Regular',
-    color: '#4B5563',
-    flex: 1,
-  },
-      findDoctorsButton: {
-      flexDirection: 'row',
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      backgroundColor: '#EFF6FF',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: '#3B82F6',
-      margin: 16,
-      gap: 8,
-      alignSelf: 'flex-start',
-    },
-  findDoctorsButtonText: {
-    fontSize: 16,
-    fontFamily: 'Inter-Medium',
-    color: '#3B82F6',
-  },
-  findDoctorsButtonDisabled: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#D1D5DB',
-    opacity: 0.6,
+    color: '#92400E',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });

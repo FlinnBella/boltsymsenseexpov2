@@ -47,9 +47,7 @@ export default function RootLayout() {
     registerForPushNotificationsAsync();
   }, []);
 
-
-
-  if (!fontsLoaded ? !fontError : null) {
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 

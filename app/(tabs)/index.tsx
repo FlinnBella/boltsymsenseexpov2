@@ -6,24 +6,23 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Heart,
-  Footprints,
-  Flame,
-  Moon,
-  Activity,
-  Target,
-  Plus,
-  Bell,
-  Apple,
+import { 
+  Activity, 
+  Heart, 
+  Target, 
   TrendingUp,
+  Calendar,
+  Plus,
+  Zap
 } from 'lucide-react-native';
-import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
+import { useUserData } from '@/hooks/useUserData';
+import { getUserProfile } from '@/lib/api/profile';
+import { getTodayBiometricData } from '@/lib/api/healthTracking';
 import HealthCard from '@/components/HealthCard';
 import MetricCard from '@/components/MetricCard';
 import CircularProgress from '@/components/CircularProgress';
@@ -96,7 +95,7 @@ export default function DashboardScreen() {
     }
   };
 
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
     try {
       await fetchHealthData();
@@ -170,7 +169,8 @@ export default function DashboardScreen() {
                 </Text>
               </LinearGradient>
             </View>
-          </Animated.View>
+          </LinearGradient>
+        </Animated.View>
 
           {/* Main Health Cards */}
           <View style={styles.section}>
@@ -248,121 +248,75 @@ export default function DashboardScreen() {
               </View>
             </View>
           </View>
+        </Animated.View>
 
-          {/* Secondary Metrics */}
-          <View style={styles.section}>
+        {/* Health Metrics */}
+        <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.section}>
+          <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Health Metrics</Text>
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricItem}>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
-                  <MetricCard
-                    title="Sleep"
-                    value={healthData.sleep.toFixed(1)}
-                    unit="hours"
-                    icon={Moon}
-                    color="#8B5CF6"
-                    change={5}
-                    delay={500}
-                  />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.metricItem}>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
-                  <MetricCard
-                    title="Active Minutes"
-                    value={healthData.activeMinutes}
-                    unit="min"
-                    icon={Activity}
-                    color="#10B981"
-                    change={-2}
-                    delay={600}
-                  />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.metricItem}>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
-                  <MetricCard
-                    title="Distance"
-                    value={healthData.distance.toFixed(1)}
-                    unit="km"
-                    icon={Target}
-                    color="#F59E0B"
-                    change={12}
-                    delay={700}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
+            <TouchableOpacity>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
           </View>
+          <View style={styles.metricsGrid}>
+            <MetricCard
+              title="Heart Rate"
+              value={todayData?.heart_rate_avg || '--'}
+              unit="bpm"
+              icon={Heart}
+              color="#EF4444"
+              trend={5}
+            />
+            <MetricCard
+              title="Weight"
+              value={todayData?.weight_kg || '--'}
+              unit="kg"
+              icon={TrendingUp}
+              color="#8B5CF6"
+              trend={-2}
+            />
+          </View>
+        </Animated.View>
 
-          {/* Quick Actions */}
-          <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-            <View style={styles.actionsContainer}>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => router.push('/(tabs)/log-symptoms')}
-              >
-                <Plus color="#F97316" size={24} />
-                <Text style={styles.actionText}>Log Symptoms</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => router.push('/(tabs)/add-medication')}
-              >
-                <Plus color="#F97316" size={24} />
-                <Text style={styles.actionText}>Add Medication</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => setShowFoodModal(true)}
-              >
-                <Apple color="#F97316" size={24} />
-                <Text style={styles.actionText}>Log Food</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => router.push('/(tabs)/health-metrics')}
-              >
-                <TrendingUp color="#F97316" size={24} />
-                <Text style={styles.actionText}>Health Metrics</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-
-          {/* Health Tip */}
-          <Animated.View entering={FadeInUp.delay(900).duration(600)} style={styles.section}>
-            <View style={styles.tipCard}>
-              <Image
-                source={{ uri: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg' }}
-                style={styles.tipImage}
-              />
-              <View style={styles.tipContent}>
-                <Text style={styles.tipTitle}>Daily Health Tip</Text>
-                <Text style={styles.tipText}>
-                  Stay hydrated! Aim for 8 glasses of water throughout the day to maintain optimal health.
-                </Text>
+        {/* Quick Actions */}
+        <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity style={styles.actionCard}>
+              <View style={[styles.actionIcon, { backgroundColor: '#3B82F6' }]}>
+                <Plus color="white" size={24} />
               </View>
+              <Text style={styles.actionTitle}>Log Symptoms</Text>
+              <Text style={styles.actionSubtitle}>Track how you feel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionCard}>
+              <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
+                <Plus color="white" size={24} />
+              </View>
+              <Text style={styles.actionTitle}>Add Medication</Text>
+              <Text style={styles.actionSubtitle}>Record your meds</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Health Insights */}
+        <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.section}>
+          <Text style={styles.sectionTitle}>Health Insights</Text>
+          <View style={styles.insightCard}>
+            <View style={styles.insightHeader}>
+              <View style={[styles.insightIcon, { backgroundColor: '#F59E0B' }]}>
+                <TrendingUp color="white" size={20} />
+              </View>
+              <Text style={styles.insightTitle}>Weekly Summary</Text>
             </View>
-          </Animated.View>
-        </ScrollView>
-
-        <WearableConnectionModal
-          visible={showWearableModal}
-          onConnect={handleConnectWearable}
-          onDismiss={handleDismissWearable}
-        />
-
-        <FoodLogModal
-          visible={showFoodModal}
-          onClose={() => setShowFoodModal(false)}
-          onSave={() => {}}
-        />
-      </SafeAreaView>
-    </>
+            <Text style={styles.insightText}>
+              You're doing great! You've been consistently active this week. 
+              Keep up the good work to reach your fitness goals.
+            </Text>
+          </View>
+        </Animated.View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -374,39 +328,57 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
   },
-  greeting: {
+  loadingText: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
   },
+  header: {
+    marginBottom: 24,
+  },
+  headerGradient: {
+    paddingTop: 20,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  greeting: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
   userName: {
     fontSize: 24,
     fontFamily: 'Poppins-Bold',
-    color: '#1F2937',
+    color: 'white',
+    marginTop: 4,
   },
   notificationButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   section: {
-    paddingHorizontal: 20,
     marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
@@ -414,146 +386,83 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 16,
   },
-  summaryCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  summaryGradient: {
-    padding: 20,
-  },
-  summaryText: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
-    color: 'white',
-    marginBottom: 4,
-  },
-  summarySubtext: {
+  viewAllText: {
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  cardGrid: {
-    gap: 16,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  cardHalf: {
-    flex: 1,
-  },
-  cardFull: {
-    flex: 1,
-  },
-  heartRateCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  heartRateGradient: {
-    padding: 20,
-  },
-  heartRateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  heartRateTitle: {
-    color: 'white',
-    fontSize: 16,
     fontFamily: 'Inter-Medium',
-    marginLeft: 8,
+    color: '#3B82F6',
   },
-  heartRateContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heartRateValue: {
-    fontSize: 28,
-    fontFamily: 'Inter-Bold',
-    color: 'white',
-  },
-  heartRateUnit: {
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  heartRateStats: {
+  statsGrid: {
     gap: 16,
-  },
-  heartRateStat: {
-    alignItems: 'center',
-  },
-  heartRateStatValue: {
-    fontSize: 18,
-    fontFamily: 'Inter-Bold',
-    color: 'white',
-  },
-  heartRateStatLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
   },
   metricsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
   },
-  metricItem: {
-    width: '48%',
-  },
-  actionsContainer: {
+  actionsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
   },
-  actionButton: {
-    width: '48%',
+  actionCard: {
+    flex: 1,
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  actionText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#1F2937',
-    marginTop: 8,
-  },
-  tipCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    overflow: 'hidden',
+    shadowRadius: 8,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
-  tipImage: {
-    width: '100%',
-    height: 120,
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  tipContent: {
-    padding: 16,
-  },
-  tipTitle: {
+  actionTitle: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  tipText: {
+  actionSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  insightCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  insightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  insightIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  insightTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+  },
+  insightText: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',

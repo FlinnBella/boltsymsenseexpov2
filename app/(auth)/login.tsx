@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useUserStore } from '@/stores/useUserStore';
 import LoadingScreen from '@/components/LoadingScreen';

@@ -56,7 +56,7 @@ export async function scheduleMedicationReminder(
     hour: time.getHours(),
     minute: time.getMinutes(),
     repeats: true,
-  };
+  } as Notifications.CalendarTriggerInput;
 
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -80,7 +80,7 @@ export async function scheduleAppointmentReminder(
       body: `You have a ${appointmentType} appointment tomorrow`,
       data: { type: 'appointment', appointmentType },
     },
-    trigger: reminderTime,
+    trigger: { date: reminderTime } as Notifications.DateTriggerInput,
   });
 }
 

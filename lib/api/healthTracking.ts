@@ -42,7 +42,6 @@ export interface HealthDataCache {
 }
 
 export interface UserPreferences {
-  id: string;
   user_id: string;
   wearable_connected: boolean;
   wearable_prompt_dismissed: boolean;

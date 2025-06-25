@@ -16,13 +16,14 @@ import {
   TrendingUp,
   Calendar,
   Plus,
-  Zap
+  Zap,
+  Bell,
+  Footprints,
+  Flame
 } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
-import { useUserData } from '@/hooks/useUserData';
 import { getUserProfile } from '@/lib/api/profile';
-import { getTodayBiometricData } from '@/lib/api/healthTracking';
 import HealthCard from '@/components/HealthCard';
 import MetricCard from '@/components/MetricCard';
 import CircularProgress from '@/components/CircularProgress';
@@ -95,7 +96,7 @@ export default function DashboardScreen() {
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
     try {
       await fetchHealthData();
@@ -165,15 +166,14 @@ export default function DashboardScreen() {
               >
                 <Text style={styles.summaryText}>You're doing great!</Text>
                 <Text style={styles.summarySubtext}>
-                  You've completed {Math.round((calculateProgress(healthData.steps, preferences.healthGoals.steps) + calculateProgress(healthData.calories, preferences.healthGoals.calories)) / 2)}% of your daily goals
+                  You've completed {Math.round((calculateProgress(healthData.steps, healthData.HealthGoals.steps) + calculateProgress(healthData.calories, healthData.HealthGoals.calories)) / 2)}% of your daily goals
                 </Text>
               </LinearGradient>
             </View>
-          </LinearGradient>
-        </Animated.View>
+                  </Animated.View>
 
           {/* Main Health Cards */}
-          <View style={styles.section}>
+          <Animated.View entering={FadeInUp.delay(300).duration(600)} style={styles.section}>
             <View style={styles.cardGrid}>
               <View style={styles.cardRow}>
                 <View style={styles.cardHalf}>
@@ -183,7 +183,7 @@ export default function DashboardScreen() {
                       value={healthData.steps.toLocaleString()}
                       icon={Footprints}
                       colors={['#3B82F6', '#1E40AF']}
-                      progress={calculateProgress(healthData.steps, preferences.healthGoals.steps)}
+                      progress={calculateProgress(healthData.steps, healthData.HealthGoals.steps)}
                       delay={300}
                     />
                   </TouchableOpacity>
@@ -196,7 +196,7 @@ export default function DashboardScreen() {
                       unit="kcal"
                       icon={Flame}
                       colors={['#F97316', '#EA580C']}
-                      progress={calculateProgress(healthData.calories, preferences.healthGoals.calories)}
+                      progress={calculateProgress(healthData.calories, healthData.HealthGoals.calories)}
                       delay={400}
                     />
                   </TouchableOpacity>
@@ -247,8 +247,7 @@ export default function DashboardScreen() {
                 </View>
               </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
         {/* Health Metrics */}
         <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.section}>
@@ -261,19 +260,17 @@ export default function DashboardScreen() {
           <View style={styles.metricsGrid}>
             <MetricCard
               title="Heart Rate"
-              value={todayData?.heart_rate_avg || '--'}
+              value={healthData.heartRate || '--'}
               unit="bpm"
               icon={Heart}
               color="#EF4444"
-              trend={5}
             />
             <MetricCard
               title="Weight"
-              value={todayData?.weight_kg || '--'}
+              value="--"
               unit="kg"
               icon={TrendingUp}
               color="#8B5CF6"
-              trend={-2}
             />
           </View>
         </Animated.View>
@@ -316,7 +313,20 @@ export default function DashboardScreen() {
           </View>
         </Animated.View>
       </ScrollView>
+
+      {/* Modals */}
+      <WearableConnectionModal
+        visible={showWearableModal}
+        onConnect={handleConnectWearable}
+        onDismiss={handleDismissWearable}
+      />
+      <FoodLogModal
+        visible={showFoodModal}
+        onClose={() => setShowFoodModal(false)}
+        onSave={() => setShowFoodModal(false)}
+      />
     </SafeAreaView>
+    </>
   );
 }
 
@@ -467,5 +477,93 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
     lineHeight: 20,
+  },
+  // Missing styles
+  summaryCard: {
+    marginBottom: 16,
+  },
+  summaryGradient: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  summaryText: {
+    fontSize: 18,
+    fontFamily: 'Poppins-SemiBold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  summarySubtext: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 20,
+  },
+  cardGrid: {
+    gap: 16,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  cardHalf: {
+    flex: 1,
+  },
+  cardFull: {
+    flex: 1,
+  },
+  heartRateCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  heartRateGradient: {
+    padding: 20,
+    borderRadius: 16,
+  },
+  heartRateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  heartRateTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins-SemiBold',
+    color: 'white',
+    marginLeft: 12,
+  },
+  heartRateContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heartRateValue: {
+    fontSize: 32,
+    fontFamily: 'Poppins-Bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  heartRateUnit: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  heartRateStats: {
+    gap: 16,
+  },
+  heartRateStat: {
+    alignItems: 'center',
+  },
+  heartRateStatValue: {
+    fontSize: 20,
+    fontFamily: 'Poppins-SemiBold',
+    color: 'white',
+  },
+  heartRateStatLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
   },
 });

@@ -8,14 +8,15 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Bot, User, Loader } from 'lucide-react-native';
+import { Send, Bot, User, Loader, MapPin } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
-
+import { useUserStore } from '@/stores/useUserStore';
 //TODO: Use frontend to update the chat message for user. Let the ai have a loading bubbles 
 //while waiting for response. 
 
@@ -30,9 +31,40 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+interface Doctor {
+  basic: {
+    first_name: string;
+    last_name: string;
+    name: string;
+    credential?: string;
+  };
+  addresses: Array<{
+    address_1: string;
+    address_2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }>;
+  practiceLocations: Array<{
+    address_1: string;
+    address_2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }>;
+  taxonomies: Array<{
+    desc: string;
+    primary: boolean;
+  }>;
+}
+
+interface DoctorApiResponse {
+  result_count: number;
+  results: Doctor[];
+}
+
 export default function AIScreen() {
-  const { userData } = useUserData();
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       text: 'Hello! I\'m your AI health assistant. I can help you with health questions, medication reminders, and wellness tips. How can I assist you today?',
@@ -42,6 +74,7 @@ export default function AIScreen() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
   const textInputRef = useRef<TextInput>(null);
   const userProfile = useUserProfile();
@@ -116,7 +149,7 @@ export default function AIScreen() {
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       text: inputText.trim(),
       isUser: true,
@@ -126,26 +159,23 @@ export default function AIScreen() {
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
+    try {
+      const aiResponse = await sendMessageToWebhook(inputText);
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
-        text: getAIResponse(userMessage.text),
+        text: aiResponse,
+        isUser: false,
+        timestamp: new Date(),
+      }]);
+    } catch (error) {
+      console.error('Error sending message to webhook:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: 'I apologize, but I\'m having trouble connecting right now. Please try again later or consult with a healthcare professional for urgent medical concerns.',
         isUser: false,
         timestamp: new Date(),
       };
-
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'I apologize, but I\'m having trouble connecting right now. Please try again later or consult with a healthcare professional for urgent medical concerns.',
-        timestamp: new Date(),
-      };
       setMessages(prev => [...prev, errorMessage]);
-      
       // Optionally show an alert for connection errors
       Alert.alert(
         'Connection Error',
@@ -153,7 +183,7 @@ export default function AIScreen() {
         [{ text: 'OK' }]
       );
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -189,16 +219,16 @@ export default function AIScreen() {
         if (fallbackZipCode) {
           const fallbackMessage: ChatMessage = {
             id: Date.now().toString(),
-            role: 'assistant',
-            content: `Unable to get your current location (${locationError.message}). Using your saved zip code: ${fallbackZipCode}`,
+            isUser: false,
+            text: `Unable to get your current location (${locationError.message}). Using your saved zip code: ${fallbackZipCode}`,
             timestamp: new Date(),
           };
           setMessages(prev => [...prev, fallbackMessage]);
         } else {
           const errorMessage: ChatMessage = {
             id: Date.now().toString(),
-            role: 'assistant',
-            content: `Unable to find doctors: ${locationError.message}`,
+            isUser: false,
+            text: `Unable to find doctors: ${locationError.message}`,
             timestamp: new Date(),
           };
           setMessages(prev => [...prev, errorMessage]);
@@ -213,8 +243,8 @@ export default function AIScreen() {
       if (!zipCodeToUse) {
         const noZipMessage: ChatMessage = {
           id: Date.now().toString(),
-          role: 'assistant',
-          content: 'No zip code available. Please update your profile with your zip code or enable location services.',
+          isUser: false,
+          text: 'No zip code available. Please update your profile with your zip code or enable location services.',
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, noZipMessage]);
@@ -233,7 +263,7 @@ export default function AIScreen() {
         throw new Error('Failed to fetch doctors');
       }
       
-      const data: DoctorApiResponse = await response.json();
+      const data = await response.json();
       console.log(data);
       
       // Store the doctors in state
@@ -246,8 +276,8 @@ export default function AIScreen() {
       
       const doctorMessage: ChatMessage = {
         id: Date.now().toString(),
-        role: 'assistant',
-        content: `Found ${data.result_count} doctors near ${locationText}:`,
+        isUser: false,
+        text: `Found ${data.result_count} doctors near ${locationText}:`,
         timestamp: new Date(),
       };
       
@@ -260,14 +290,14 @@ export default function AIScreen() {
       
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
-        role: 'assistant',
-        content: 'Sorry, I had trouble finding doctors in your area. Please try again later.',
+        isUser: false,
+        text: 'Sorry, I had trouble finding doctors in your area. Please try again later.',
         timestamp: new Date(),
       };
       
       setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -319,7 +349,7 @@ export default function AIScreen() {
     );
   };
 
-  const MessageBubble = ({ message }: { message: Message }) => (
+  const MessageBubble = ({ message }: { message: ChatMessage }) => (
     <Animated.View
       entering={FadeInRight.delay(100).duration(400)}
       style={[
@@ -590,5 +620,63 @@ const styles = StyleSheet.create({
     color: '#92400E',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  // Doctor-related styles
+  messageContainer: {
+    marginBottom: 16,
+  },
+  assistantMessageContainer: {
+    alignSelf: 'flex-start',
+  },
+  doctorListContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+  },
+  doctorListTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins-Bold',
+    color: '#1F2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  doctorCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  doctorHeader: {
+    marginBottom: 8,
+  },
+  doctorName: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  doctorSpecialty: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#10B981',
+    marginBottom: 8,
+  },
+  doctorInfo: {
+    gap: 8,
+  },
+  doctorInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  doctorInfoText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    flex: 1,
+    lineHeight: 20,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ToastAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,7 +17,6 @@ import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/useUserStore';
-import { User, Mail, ChevronLeft, Check } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import VerifiedModal from '@/components/Modal/VerifiedModal';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
@@ -65,7 +65,9 @@ export default function SignupScreen() {
     password: '',
     confirmPassword: '',
   });
-
+  const [activeStep, setActiveStep] = useState(1);
+  const [showVerifiedModal, setShowVerifiedModal] = useState(false);
+  const [previousStep, setPreviousStep] = useState(1);
   // Effect to handle address reset when navigating to previous steps
   useEffect(() => {
     // If user is navigating to a step before step 3 (i.e., step 1 or 2)

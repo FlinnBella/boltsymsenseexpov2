@@ -21,11 +21,12 @@ import ProfileEditModal from '@/components/Modal/ProfileEditModal';
 import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUserStore, useUserProfile, useUserPreferences, useIsLoadingProfile, useIsLoadingPreferences } from '@/stores/useUserStore';
+import { useUserStore, useUserProfile, useUserPreferences, useIsLoadingProfile, useIsLoadingPreferences, useHealthData } from '@/stores/useUserStore';
 
 export default function ProfileScreen() {
   // Use Zustand store instead of local state
   const userProfile = useUserProfile();
+  const healthData = useHealthData();
   const preferences = useUserPreferences();
   const isLoadingProfile = useIsLoadingProfile();
   const isLoadingPreferences = useIsLoadingPreferences();
@@ -243,21 +244,22 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInUp.delay(200).duration(600)}>
           <ProfileSection title="Health Goals">
             <ProfileItem
+            //look at the preferences structure 
               icon={Target}
               title="Daily Steps"
-              subtitle={`${preferences.healthGoals.steps.toLocaleString()} steps`}
+              subtitle={`${healthData.HealthGoals.steps.toLocaleString()} steps`}
               onPress={() => {}}
             />
             <ProfileItem
               icon={Heart}
               title="Calories Goal"
-              subtitle={`${preferences.healthGoals.calories} kcal`}
+              subtitle={`${healthData.HealthGoals.calories} kcal`}
               onPress={() => {}}
             />
             <ProfileItem
               icon={Activity}
               title="Active Minutes"
-              subtitle={`${preferences.healthGoals.activeMinutes} minutes`}
+              subtitle={`${healthData.HealthGoals.activeMinutes} minutes`}
               onPress={() => {}}
             />
           </ProfileSection>

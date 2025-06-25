@@ -28,6 +28,12 @@ export interface HealthData {
   activeMinutes: number;
   distance: number;
   lastUpdated?: string;
+  HealthGoals: {
+    entries: string;
+    steps: number;
+    calories: number;
+    activeMinutes: number;
+  }
 }
 
 export interface HealthGoals {
@@ -38,15 +44,15 @@ export interface HealthGoals {
 }
 
 export interface UserPreferences {
-  healthGoals: HealthGoals;
-  notifications: {
-    enabled: boolean;
-    symptoms: boolean;
-    medication: boolean;
-    health: boolean;
-  };
   wearableConnected: boolean;
   wearablePromptDismissed: boolean;
+  notifications: {
+    achievements: boolean;
+    healthAlerts: boolean;
+    medications: boolean;
+    appointments: boolean;
+  };
+  dashboard_layout?: any; // jsonb field for dashboard configuration
 }
 
 export interface AuthState {
@@ -113,20 +119,20 @@ const defaultHealthData: HealthData = {
   sleep: 0,
   activeMinutes: 0,
   distance: 0,
-};
-
-const defaultPreferences: UserPreferences = {
-  healthGoals: {
+  HealthGoals: {
+    entries: 'none',
     steps: 10000,
     calories: 2000,
     activeMinutes: 60,
-    sleepHours: 8,
   },
+};
+
+const defaultPreferences: UserPreferences = {
   notifications: {
-    enabled: true,
-    symptoms: true,
-    medication: true,
-    health: true,
+    achievements: true,
+    healthAlerts: true,
+    medications: true,
+    appointments: true,
   },
   wearableConnected: false,
   wearablePromptDismissed: false,
@@ -441,6 +447,12 @@ export const useUserStore = create<UserStore>()(
                 activeMinutes: data.active_minutes || 0,
                 distance: data.distance || 0,
                 lastUpdated: data.updated_at,
+                HealthGoals: {
+                  entries: data.health_goals_entries || 'none',
+                  steps: data.health_goals_steps || 10000,
+                  calories: data.health_goals_calories || 2000,
+                  activeMinutes: data.health_goals_active_minutes || 60,
+                },
               },
               isLoadingHealthData: false,
             }));

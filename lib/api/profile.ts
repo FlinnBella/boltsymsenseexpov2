@@ -177,8 +177,11 @@ export async function logMedication(userId: string, medicationName: string, dosa
 
 export async function getUserPreferencesFromDB(userId: string): Promise<UserPreferences> {
   const { data, error } = await supabase
-    .from('users')
+    .from('users_preferences')
     .select(`
+      dashboard_layout,
+      wearable_connected,
+      wearable_prompt_dismissed,
       notification_achievements,
       notification_health_alerts,
       notification_medications,
@@ -198,6 +201,9 @@ export async function getUserPreferencesFromDB(userId: string): Promise<UserPref
 
   // Convert DB format to app format
   return {
+    dashboard_layout: data.dashboard_layout ?? defaultPreferences.dashboard_layout,
+    wearableConnected: data.wearable_connected ?? defaultPreferences.wearableConnected,
+    wearablePromptDismissed: data.wearable_prompt_dismissed ?? defaultPreferences.wearablePromptDismissed,
     notifications: {
       achievements: data.notification_achievements ?? defaultPreferences.notifications.achievements,
       healthAlerts: data.notification_health_alerts ?? defaultPreferences.notifications.healthAlerts,

@@ -10,11 +10,17 @@ export interface UserProfile {
   email: string;
   first_name: string;
   last_name: string;
+  middle_name?: string;
   phone?: string;
+  date_of_birth?: string;
+  gender?: string;
+  profile_image_url?: string;
   address_line_1?: string;
+  address_line_2?: string;
   city?: string;
   state?: string;
   zip_code?: string;
+  country?: string;
   autoimmune_diseases?: string[];
   created_at?: string;
   updated_at?: string;

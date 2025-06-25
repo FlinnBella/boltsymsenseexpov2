@@ -12,8 +12,8 @@ import {
   Platform,
 } from 'react-native';
 import { X, Save } from 'lucide-react-native';
-import { UserProfile, PatientProfile, updateUserProfile, createOrUpdatePatientProfile } from '@/lib/api/profile';
-import { useUserData } from '@/hooks/useUserData';
+import { PatientProfile, createOrUpdatePatientProfile } from '@/lib/api/profile';
+import { useUserStore, UserProfile } from '@/stores/useUserStore';
 
 // TODO:  FIGURE THE SLOP OUT LATER
 
@@ -32,8 +32,8 @@ export default function ProfileEditModal({
   patientProfile,
   onSave,
 }: ProfileEditModalProps) {
+  const { updateUserProfile, initializeUserData } = useUserStore();
   const [loading, setLoading] = useState(false);
-  const { refreshUserData } = useUserData();
   const [formData, setFormData] = useState({
     // User profile fields
     first_name: userProfile.first_name || '',
@@ -83,48 +83,48 @@ export default function ProfileEditModal({
       const userUpdates = {
         first_name: formData.first_name,
         last_name: formData.last_name,
-        middle_name: formData.middle_name || null,
-        phone: formData.phone || null,
-        date_of_birth: formData.date_of_birth || null,
-        gender: formData.gender || null,
-        address_line_1: formData.address_line_1 || null,
-        address_line_2: formData.address_line_2 || null,
-        city: formData.city || null,
-        state: formData.state || null,
-        zip_code: formData.zip_code || null,
-        country: formData.country,
+        middle_name: formData.middle_name || undefined,
+        phone: formData.phone || undefined,
+        date_of_birth: formData.date_of_birth || undefined,
+        gender: formData.gender || undefined,
+        address_line_1: formData.address_line_1 || undefined,
+        address_line_2: formData.address_line_2 || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        zip_code: formData.zip_code || undefined,
+        country: formData.country || undefined,
       };
 
-      await updateUserProfile(userProfile.id, userUpdates);
+      await updateUserProfile(userUpdates);
 
       // Update patient profile
       const patientUpdates = {
-        ethnicity: formData.ethnicity || null,
-        race: formData.race || null,
+        ethnicity: formData.ethnicity || undefined,
+        race: formData.race || undefined,
         preferred_language: formData.preferred_language,
-        marital_status: formData.marital_status || null,
-        occupation: formData.occupation || null,
-        emergency_contact_name: formData.emergency_contact_name || null,
-        emergency_contact_relationship: formData.emergency_contact_relationship || null,
-        emergency_contact_phone: formData.emergency_contact_phone || null,
-        emergency_contact_email: formData.emergency_contact_email || null,
-        insurance_provider: formData.insurance_provider || null,
-        insurance_policy_number: formData.insurance_policy_number || null,
-        insurance_group_number: formData.insurance_group_number || null,
-        blood_type: formData.blood_type || null,
-        allergies: formData.allergies || null,
-        chronic_conditions: formData.chronic_conditions || null,
-        current_medications: formData.current_medications || null,
-        family_medical_history: formData.family_medical_history || null,
-        height_inches: formData.height_inches ? parseInt(formData.height_inches) : null,
-        weight_pounds: formData.weight_pounds ? parseFloat(formData.weight_pounds) : null,
-        preferred_provider_gender: formData.preferred_provider_gender || null,
+        marital_status: formData.marital_status || undefined,
+        occupation: formData.occupation || undefined,
+        emergency_contact_name: formData.emergency_contact_name || undefined,
+        emergency_contact_relationship: formData.emergency_contact_relationship || undefined,
+        emergency_contact_phone: formData.emergency_contact_phone || undefined,
+        emergency_contact_email: formData.emergency_contact_email || undefined,
+        insurance_provider: formData.insurance_provider || undefined,
+        insurance_policy_number: formData.insurance_policy_number || undefined,
+        insurance_group_number: formData.insurance_group_number || undefined,
+        blood_type: formData.blood_type || undefined,
+        allergies: formData.allergies || undefined,
+        chronic_conditions: formData.chronic_conditions || undefined,
+        current_medications: formData.current_medications || undefined,
+        family_medical_history: formData.family_medical_history || undefined,
+        height_inches: formData.height_inches ? parseInt(formData.height_inches) : undefined,
+        weight_pounds: formData.weight_pounds ? parseFloat(formData.weight_pounds) : undefined,
+        preferred_provider_gender: formData.preferred_provider_gender || undefined,
       };
 
       await createOrUpdatePatientProfile(userProfile.id, patientUpdates);
 
-      // Refresh UserContext data
-      await refreshUserData();
+      // Refresh user data using Zustand
+      await initializeUserData();
 
       Alert.alert('Success', 'Profile updated successfully');
       onSave();

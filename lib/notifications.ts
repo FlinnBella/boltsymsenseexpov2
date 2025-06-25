@@ -64,6 +64,7 @@ export async function scheduleMedicationReminder(
       body: `Time to take your ${medicationName}`,
       data: { type: 'medication', medication: medicationName },
     },
+    //what the hell does the trigger do here even??
     trigger,
   });
 }

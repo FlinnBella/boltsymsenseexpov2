@@ -1,13 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface UserPreferences {
-  dashboardLayout: string[];
-  healthGoals: {
-    steps: number;
-    calories: number;
-    activeMinutes: number;
-    sleepHours: number;
-  };
   notifications: {
     achievements: boolean;
     healthAlerts: boolean;
@@ -17,13 +10,6 @@ export interface UserPreferences {
 }
 
 export const defaultPreferences: UserPreferences = {
-  dashboardLayout: ['steps', 'heartRate', 'calories', 'sleep'],
-  healthGoals: {
-    steps: 10000,
-    calories: 2000,
-    activeMinutes: 30,
-    sleepHours: 8,
-  },
   notifications: {
     achievements: true,
     healthAlerts: true,

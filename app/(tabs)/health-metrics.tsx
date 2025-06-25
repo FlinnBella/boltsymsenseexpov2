@@ -13,7 +13,7 @@ import { ArrowLeft, Footprints, Flame, Heart, TrendingUp } from 'lucide-react-na
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserProfile } from '@/stores/useUserStore';
 
 const { width } = Dimensions.get('window');
 
@@ -25,7 +25,7 @@ interface BiometricData {
 }
 
 export default function HealthMetricsScreen() {
-  const { userData } = useUserData();
+  const userProfile = useUserProfile();
   const [weeklyData, setWeeklyData] = useState<BiometricData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMetric, setSelectedMetric] = useState<'steps' | 'calories' | 'heart_rate'>('steps');
@@ -43,7 +43,7 @@ export default function HealthMetricsScreen() {
       const { data, error } = await supabase
         .from('user_biometric_data')
         .select('date, steps, calories_burned, heart_rate_avg')
-        .eq('user_id', userData.id)
+        .eq('user_id', userProfile?.id)
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', endDate.toISOString().split('T')[0])
         .order('date', { ascending: true });

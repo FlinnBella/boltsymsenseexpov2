@@ -14,7 +14,7 @@ import { ArrowLeft, Save, CircleAlert as AlertCircle } from 'lucide-react-native
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserProfile } from '@/stores/useUserStore';
 
 const SEVERITY_LEVELS = [
   { value: 1, label: 'Very Mild', color: '#10B981' },
@@ -30,7 +30,7 @@ const SEVERITY_LEVELS = [
 ];
 
 export default function LogSymptomsScreen() {
-  const { userData } = useUserData();
+  const userProfile = useUserProfile();
   const [symptomName, setSymptomName] = useState('');
   const [severity, setSeverity] = useState<number | null>(null);
   const [description, setDescription] = useState('');
@@ -52,7 +52,7 @@ export default function LogSymptomsScreen() {
       const { error } = await supabase
         .from('symptom_logs')
         .insert({
-          user_id: userData.id,
+          user_id: userProfile?.id,
           symptom_name: symptomName.trim(),
           severity,
           description: description.trim() || null,

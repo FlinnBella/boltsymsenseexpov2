@@ -14,10 +14,10 @@ import { ArrowLeft, Save, Pill } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserProfile } from '@/stores/useUserStore';
 
 export default function AddMedicationScreen() {
-  const { userData } = useUserData();
+  const userProfile = useUserProfile();
   const [medicationName, setMedicationName] = useState('');
   const [dosage, setDosage] = useState('');
   const [notes, setNotes] = useState('');
@@ -34,7 +34,7 @@ export default function AddMedicationScreen() {
       const { error } = await supabase
         .from('medication_logs')
         .insert({
-          user_id: userData.id,
+          user_id: userProfile?.id,
           medication_name: medicationName.trim(),
           dosage: dosage.trim() || null,
           taken_at: new Date().toISOString(),

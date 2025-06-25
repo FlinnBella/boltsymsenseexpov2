@@ -36,30 +36,21 @@ import { getUserPreferencesFromDB, updateUserPreferencesInDB, getCachedHealthDat
 import { getUserPreferences as getHealthTrackingPreferences, createOrUpdateUserPreferences, dismissWearablePrompt } from '@/lib/api/healthTracking';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserStore, useUserProfile, useHealthData, useUserPreferences, useIsLoadingProfile, useIsLoadingHealthData, useIsLoadingPreferences } from '@/stores/useUserStore';
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showWearableModal, setShowWearableModal] = useState(false);
   const [showFoodModal, setShowFoodModal] = useState(false);
-  const [healthData, setHealthData] = useState({
-    steps: 2453,
-    heartRate: 89,
-    calories: 1234,
-    sleep: 7.5,
-    activeMinutes: 120,
-    distance: 12.3,
-  });
-
-  const [goals, setGoals] = useState({
-    steps: 10000,
-    calories: 2000,
-    activeMinutes: 60,
-    sleepHours: 8,
-  });
-
-  const { userData, setUserData } = useUserData();
+  // Use Zustand store instead of local state
+  const userProfile = useUserProfile();
+  const healthData = useHealthData();
+  const preferences = useUserPreferences();
+  const isLoadingProfile = useIsLoadingProfile();
+  const isLoadingHealthData = useIsLoadingHealthData();
+  const isLoadingPreferences = useIsLoadingPreferences();
+  const { fetchHealthData, updatePreferences } = useUserStore();
 
   useEffect(() => {
     initializeDashboard();
@@ -68,90 +59,34 @@ export default function DashboardScreen() {
   const initializeDashboard = async () => {
     setLoading(true);
     
-    // Simulate loading time for better UX
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    await Promise.all([
-      loadUserData(),
-      loadHealthData(),
-      loadUserPreferences(),
-      checkWearablePrompt(),
-    ]);
-    
-    setLoading(false);
-  };
-
-  const loadUserData = async () => {
     try {
-      if (!userData) return;
-      // userData is already set from context
-    } catch (error) {
-      console.error('Error in loadUserData:', error);
-    }
-  };
-
-  const loadHealthData = async () => {
-    try {
-      if (!userData) return;
-
-      // Load cached data for immediate display
-      try {
-        const cachedData = await getCachedHealthData(userData.id);
-        if (cachedData) {
-          setHealthData({
-            steps: cachedData.steps,
-            heartRate: cachedData.heartRate || 0,
-            calories: cachedData.calories,
-            sleep: cachedData.sleep || 0,
-            activeMinutes: cachedData.activeMinutes,
-            distance: cachedData.distance / 1000, // Convert to km
-          });
-        }
-      } catch (error) {
-        console.log('No cached health data available:', error);
-      }
-    } catch (error) {
-      console.error('Error loading health data:', error);
-    }
-  };
-
-  const loadUserPreferences = async () => {
-    try {
-      if (!userData) return;
-
-      // First try to get from AsyncStorage (fast)
-      let prefs = await getUserPreferences();
-
-      // Check if we have default preferences (meaning nothing was cached)
-      const isDefaultPrefs = JSON.stringify(prefs) === JSON.stringify(defaultPreferences);
+      // Simulate loading time for better UX
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (isDefaultPrefs) {
-        try {
-          // If using defaults, try to get from DB
-          prefs = await getUserPreferencesFromDB(userData.id);
-          // Cache the DB preferences in AsyncStorage
-          await saveUserPreferences(prefs);
-        } catch (error) {
-          console.error('Error loading preferences from DB, using defaults:', error);
-          // Keep using defaults if DB fails
-        }
-      }
-
-      setGoals(prefs.healthGoals);
+      await Promise.all([
+        checkWearablePrompt(),
+      ]);
+      
+      // User data is already loaded from Zustand store via AuthGuard
     } catch (error) {
-      console.error('Error loading preferences:', error);
-      setGoals(defaultPreferences.healthGoals);
+      console.error('Error initializing dashboard:', error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Remove loadUserData - using Zustand store
+
+  // Remove loadHealthData - using Zustand store
+
+  // Remove loadUserPreferences - using Zustand store
 
   const checkWearablePrompt = async () => {
     try {
-      if (!userData) return;
+      if (!userProfile || !preferences) return;
 
-      const preferences = await getHealthTrackingPreferences(userData.id);
-      
       // Show modal if user hasn't connected wearable and hasn't dismissed prompt
-      if (!preferences?.wearable_connected && !preferences?.wearable_prompt_dismissed) {
+      if (!preferences.wearableConnected && !preferences.wearablePromptDismissed) {
         setTimeout(() => {
           setShowWearableModal(true);
         }, 1000); // Show after loading screen
@@ -163,8 +98,13 @@ export default function DashboardScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadHealthData();
-    setRefreshing(false);
+    try {
+      await fetchHealthData();
+    } catch (error) {
+      console.error('Error refreshing health data:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const calculateProgress = (current: number, goal: number) => {
@@ -179,7 +119,7 @@ export default function DashboardScreen() {
   const handleDismissWearable = async () => {
     setShowWearableModal(false);
     try {
-      await dismissWearablePrompt(userData.id);
+      await updatePreferences({ wearablePromptDismissed: true });
     } catch (error) {
       console.error('Error dismissing wearable prompt:', error);
     }
@@ -208,7 +148,7 @@ export default function DashboardScreen() {
             <View>
               <Text style={styles.greeting}>Good Morning</Text>
               <Text style={styles.userName}>
-                {userData?.first_name ? capitalizeFirstLetter(userData.first_name) : 'User'}
+                {userProfile?.first_name ? capitalizeFirstLetter(userProfile.first_name) : 'User'}
               </Text>
             </View>
             <TouchableOpacity style={styles.notificationButton}>
@@ -226,7 +166,7 @@ export default function DashboardScreen() {
               >
                 <Text style={styles.summaryText}>You're doing great!</Text>
                 <Text style={styles.summarySubtext}>
-                  You've completed {Math.round((calculateProgress(healthData.steps, goals.steps) + calculateProgress(healthData.calories, goals.calories)) / 2)}% of your daily goals
+                  You've completed {Math.round((calculateProgress(healthData.steps, preferences.healthGoals.steps) + calculateProgress(healthData.calories, preferences.healthGoals.calories)) / 2)}% of your daily goals
                 </Text>
               </LinearGradient>
             </View>
@@ -243,7 +183,7 @@ export default function DashboardScreen() {
                       value={healthData.steps.toLocaleString()}
                       icon={Footprints}
                       colors={['#3B82F6', '#1E40AF']}
-                      progress={calculateProgress(healthData.steps, goals.steps)}
+                      progress={calculateProgress(healthData.steps, preferences.healthGoals.steps)}
                       delay={300}
                     />
                   </TouchableOpacity>
@@ -256,7 +196,7 @@ export default function DashboardScreen() {
                       unit="kcal"
                       icon={Flame}
                       colors={['#F97316', '#EA580C']}
-                      progress={calculateProgress(healthData.calories, goals.calories)}
+                      progress={calculateProgress(healthData.calories, preferences.healthGoals.calories)}
                       delay={400}
                     />
                   </TouchableOpacity>

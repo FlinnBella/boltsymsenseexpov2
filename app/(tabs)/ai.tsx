@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Bot, User, Phone, Mail, MapPin } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
 
 //TODO: Use frontend to update the chat message for user. Let the ai have a loading bubbles 
@@ -78,7 +78,10 @@ export default function AIAssistantScreen() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
   const textInputRef = useRef<TextInput>(null);
-  const { userData } = useUserData();
+  const userProfile = useUserProfile();
+  const medications = useMedications();
+  const symptoms = useSymptoms();
+  const foodLogs = useFoodLogs();
 
   useEffect(() => {
     scrollToBottom();
@@ -101,7 +104,13 @@ export default function AIAssistantScreen() {
         body: JSON.stringify({
           message,
           timestamp: new Date().toISOString(),
-          zipCode: userData.zip_code,
+          zipCode: userProfile?.zip_code,
+          diseases: userProfile?.autoimmune_diseases,
+          //filtered to last 30 entries from separate data structures
+          medications: medications,
+          symptoms: symptoms,
+          //food logs from separate data structure
+          food_log: foodLogs,
         }),
       });
 
@@ -211,7 +220,7 @@ export default function AIAssistantScreen() {
         console.error('Location error:', locationError);
         
         // Fall back to user's saved zip code if available
-        const fallbackZipCode = userData.zip_code;
+        const fallbackZipCode = userProfile?.zip_code;
         if (fallbackZipCode) {
           const fallbackMessage: ChatMessage = {
             id: Date.now().toString(),
@@ -234,7 +243,7 @@ export default function AIAssistantScreen() {
 
       // Use current location zip code or fall back to saved zip code
       const locationData = locationResult as LocationData;
-      const zipCodeToUse = ('zipCode' in locationResult) ? locationData.zipCode : userData.zip_code;
+      const zipCodeToUse = ('zipCode' in locationResult) ? locationData.zipCode : userProfile?.zip_code;
       
       if (!zipCodeToUse) {
         const noZipMessage: ChatMessage = {
@@ -268,7 +277,7 @@ export default function AIAssistantScreen() {
       // Add a message to show the doctors in the chat
       const locationText = ('zipCode' in locationResult) ? 
         `your current location (${locationData.zipCode})` : 
-        `your saved zip code (${userData.zip_code})`;
+        `your saved zip code (${userProfile?.zip_code})`;
       
       const doctorMessage: ChatMessage = {
         id: Date.now().toString(),

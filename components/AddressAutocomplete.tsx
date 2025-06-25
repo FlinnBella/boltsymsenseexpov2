@@ -95,7 +95,7 @@ export default function AddressAutocomplete({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [value, hasSelectedAddress, lastSelectedValue]);
+  }, [value]); // FIXED: Only depend on value to prevent infinite loops
 
   const fetchSuggestions = async (input: string) => {
     try {

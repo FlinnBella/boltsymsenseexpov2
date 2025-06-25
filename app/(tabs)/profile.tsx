@@ -17,180 +17,110 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
 import { getUserPreferences, saveUserPreferences, clearUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
 import { getUserProfile, getPatientProfile, getHealthGoals, updateHealthGoal, getUserPreferencesFromDB, updateUserPreferencesInDB, UserProfile, PatientProfile } from '@/lib/api/profile';
-import { getTerraConnections, terraAPI, saveTerraConnection } from '@/lib/api/terra';
 import ProfileEditModal from '@/components/Modal/ProfileEditModal';
 import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserStore, useUserProfile, useUserPreferences, useIsLoadingProfile, useIsLoadingPreferences } from '@/stores/useUserStore';
 
 export default function ProfileScreen() {
-  const { userData, setUserData } = useUserData();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  // Use Zustand store instead of local state
+  const userProfile = useUserProfile();
+  const preferences = useUserPreferences();
+  const isLoadingProfile = useIsLoadingProfile();
+  const isLoadingPreferences = useIsLoadingPreferences();
+  const { updatePreferences, signOut, fetchUserProfile } = useUserStore();
   const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [terraConnections, setTerraConnections] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [connectedDevices, setConnectedDevices] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showWearableConnectionModal, setShowWearableConnectionModal] = useState(false);
 
  
   useEffect(() => {
-    loadUserData();
-    loadPreferences();
-    loadTerraConnections();
-  }, []);
+    loadPatientData();
+    loadConnectedDevices();
+  }, [userProfile]);
 
   
 
-  const loadUserData = async () => {
+  const loadPatientData = async () => {
     try {
-      //const { data: { user } } = await supabase.auth.getUser();
-      console.log('User:', userData);
-      if (!userData) return;
+      if (!userProfile) return;
 
-      setUserData(userData);
-      
-      const profile = await getUserProfile(userData.id);
-      console.log('Profile:', profile);
-      setUserProfile(profile);
-
-      const patientData = await getPatientProfile(userData.id);
+      const patientData = await getPatientProfile(userProfile.id);
       console.log('Patient Data:', patientData);
       setPatientProfile(patientData);
     } catch (error) {
-      console.error('Error loading user data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error loading patient data:', error);
     }
   };
 
-  const loadPreferences = async () => {
+  // Remove loadPreferences - using Zustand store
+
+  const loadConnectedDevices = async () => {
     try {
-      if (!userData) return;
-
-      // First try to get from AsyncStorage (fast)
-      let prefs = await getUserPreferences();
-
-      // Check if we have default preferences (meaning nothing was cached)
-      const isDefaultPrefs = JSON.stringify(prefs) === JSON.stringify(defaultPreferences);
-      
-      if (isDefaultPrefs) {
-        try {
-          // If using defaults, try to get from DB
-          prefs = await getUserPreferencesFromDB(userData.id);
-          // Cache the DB preferences in AsyncStorage
-          await saveUserPreferences(prefs);
-        } catch (error) {
-          console.error('Error loading preferences from DB, using defaults:', error);
-          // Keep using defaults if DB fails
-        }
+      // For now, we'll check if user has enabled wearable connection in preferences
+      // In the future, this could integrate with actual device APIs
+      if (preferences?.wearableConnected) {
+        setConnectedDevices(['Health App']); // Placeholder for connected device
+      } else {
+        setConnectedDevices([]);
       }
-
-      setPreferences(prefs);
     } catch (error) {
-      console.error('Error loading preferences:', error);
-      setPreferences(defaultPreferences);
-    }
-  };
-
-  const loadTerraConnections = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const connections = await getTerraConnections(user.id);
-      setTerraConnections(connections);
-    } catch (error) {
-      console.error('Error loading Terra connections:', error);
+      console.error('Error loading connected devices:', error);
     }
   };
 
   const updateNotificationPreference = async (key: keyof UserPreferences['notifications'], value: boolean) => {
-    if (!preferences || !userData) return;
+    if (!preferences || !userProfile) return;
 
-    const updatedPreferences = {
-      ...preferences,
-      notifications: {
-        ...preferences.notifications,
-        [key]: value,
-      },
+    const updatedNotifications = {
+      ...preferences.notifications,
+      [key]: value,
     };
 
     try {
-      // Update local state immediately for better UX
-      setPreferences(updatedPreferences);
-      
-      // Update AsyncStorage
-      await saveUserPreferences(updatedPreferences);
-      
-      // Update database
-      await updateUserPreferencesInDB(userData.id, updatedPreferences);
+      await updatePreferences({ 
+        notifications: updatedNotifications 
+      });
     } catch (error) {
       console.error('Error updating preferences:', error);
-      // Revert on error
-      setPreferences(preferences);
       Alert.alert('Error', 'Failed to update preference. Please try again.');
     }
   };
 
   const handleConnectWearable = async () => {
-    if (!userData) return;
+    if (!userProfile) return;
 
     Alert.alert(
-      'Connect Wearable Device',
-      'Choose your wearable device provider:',
+      'Connect Health App',
+      'Would you like to enable health data tracking?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Apple Health', onPress: () => connectProvider('APPLE') },
-        { text: 'Google Fit', onPress: () => connectProvider('GOOGLE') },
-        { text: 'Fitbit', onPress: () => connectProvider('FITBIT') },
-        { text: 'Garmin', onPress: () => connectProvider('GARMIN') },
+        { 
+          text: 'Enable Health Tracking', 
+          onPress: async () => {
+            try {
+              await updatePreferences({ wearableConnected: true });
+              
+              setConnectedDevices(['Health App']);
+              Alert.alert('Success', 'Health tracking enabled successfully!');
+            } catch (error) {
+              console.error('Error enabling health tracking:', error);
+              Alert.alert('Error', 'Failed to enable health tracking. Please try again.');
+            }
+          }
+        },
       ]
     );
   };
 
-  const connectProvider = async (provider: string) => {
-    try {
-      if (!userData) return;
 
-      const referenceId = `${userData.id}_${provider}_${Date.now()}`;
-      const authData = await terraAPI.generateAuthURL(provider, referenceId);
-
-      if (authData.auth_url) {
-        const result = await WebBrowser.openBrowserAsync(authData.auth_url);
-        
-        if (result.type === 'dismiss') {
-          // User closed the browser, check if connection was successful
-          setTimeout(async () => {
-            try {
-              await saveTerraConnection({
-                user_id: userData.id,
-                terra_user_id: authData.user_id,
-                provider,
-                reference_id: referenceId,
-                is_active: true,
-                last_sync_at: null,
-              });
-              
-              Alert.alert('Success', `${provider} connected successfully!`);
-              loadTerraConnections();
-            } catch (error) {
-              console.error('Error saving connection:', error);
-            }
-          }, 2000);
-        }
-      }
-    } catch (error) {
-      console.error('Error connecting provider:', error);
-      Alert.alert('Error', 'Failed to connect wearable device. Please try again.');
-    }
-  };
-
-  const handleDisconnectWearable = (connection: any) => {
+  const handleDisconnectWearable = (deviceName: string) => {
     Alert.alert(
-      'Disconnect Wearable',
-      `Are you sure you want to disconnect ${connection.provider}?`,
+      'Disconnect Health Tracking',
+      `Are you sure you want to disconnect ${deviceName}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -198,12 +128,13 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await terraAPI.deauthUser(connection.terra_user_id);
-              Alert.alert('Success', 'Wearable disconnected successfully');
-              loadTerraConnections();
+              await updatePreferences({ wearableConnected: false });
+              
+              setConnectedDevices([]);
+              Alert.alert('Success', 'Health tracking disconnected successfully');
             } catch (error) {
-              console.error('Error disconnecting wearable:', error);
-              Alert.alert('Error', 'Failed to disconnect wearable');
+              console.error('Error disconnecting health tracking:', error);
+              Alert.alert('Error', 'Failed to disconnect health tracking');
             }
           },
         },
@@ -222,14 +153,8 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Clear preferences from AsyncStorage
-              //await clearUserPreferences();
-              // Sign out from Supabase
-              await supabase.auth.signOut();
-              // Clear auth token
-              await AsyncStorage.removeItem('authToken');
-              // Navigate to login
-              router.replace('/(auth)/login');
+              await signOut();
+              // Navigation is handled by AuthGuard
             } catch (error) {
               console.error('Error signing out:', error);
               Alert.alert('Error', 'Failed to sign out completely. Please try again.');
@@ -276,7 +201,7 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
-  if (loading || !userData || !userProfile || !preferences) {
+  if (loading || !userProfile || !preferences || isLoadingProfile || isLoadingPreferences) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -340,22 +265,22 @@ export default function ProfileScreen() {
 
         
         <Animated.View entering={FadeInUp.delay(400).duration(600)}>
-          <ProfileSection title="Connected Devices">
-            {terraConnections.length > 0 ? (
-              terraConnections.map((connection) => (
+          <ProfileSection title="Health Tracking">
+            {connectedDevices.length > 0 ? (
+              connectedDevices.map((deviceName) => (
                 <ProfileItem
-                  key={connection.id}
+                  key={deviceName}
                   icon={Smartphone}
-                  title={connection.provider}
-                  subtitle={connection.is_active ? 'Connected' : 'Disconnected'}
-                  onPress={() => handleDisconnectWearable(connection)}
+                  title={deviceName}
+                  subtitle="Connected"
+                  onPress={() => handleDisconnectWearable(deviceName)}
                 />
               ))
             ) : (
               <ProfileItem
                 icon={Plus}
-                title="Connect Wearable Device"
-                subtitle="Connect your fitness tracker or smartwatch"
+                title="Enable Health Tracking"
+                subtitle="Track your health metrics and activities"
                 onPress={handleConnectWearable}
               />
             )}
@@ -460,7 +385,7 @@ export default function ProfileScreen() {
         onClose={() => setShowEditModal(false)}
         userProfile={userProfile}
         patientProfile={patientProfile}
-        onSave={loadUserData}
+        onSave={fetchUserProfile}
       />
     </SafeAreaView>
   );

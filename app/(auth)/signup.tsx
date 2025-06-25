@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useUserStore } from '@/stores/useUserStore';
 import { User, Mail, ChevronLeft, Check } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import VerifiedModal from '@/components/Modal/VerifiedModal';
@@ -247,46 +248,36 @@ export default function SignupScreen() {
     }
   };
 
+  const { signUp } = useUserStore();
+
   const handleSignup = async () => {
     setLoading(true);
     try {
-      console.log('signing up');
-      console.log(formData.email);
-      // Create user account
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-      });
+      console.log('Signing up with email:', formData.email);
       
-      const signupData = data;
-      console.log(signupData)
+      // Use Zustand store signup function (includes email validation)
+      const { data, error } = await signUp(formData.email, formData.password);
       
-      if (signupData) {
+      if (error) {
+        // Check if it's an email already registered error
+        if (error.message === 'Email already registered') {
+          Alert.alert('Error', 'Email already registered');
+        } else {
+          showToast(error.message);
+        }
+        return;
+      }
+      
+      if (data?.user) {
         try {
-            // First, check if a user already exists in public.users
-            const { data: existingUsers, error: lookupError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', formData.email)
-            .limit(1);
-            
-          if (lookupError) {
-            showToast('Failed to check for existing user');
-            console.error(lookupError);
-            return;
-          }
-        
-          if (existingUsers.length > 0) {
-            showToast('An account with this email already exists.');
-            return;
-          }
-        
-              console.log('formData', formData);
-          const { data, error: userError } = await supabase
+          console.log('Creating user profile in database');
+          
+          // Create user profile in the users table
+          const { error: userError } = await supabase
             .from('users')
             .insert({
-              id: signupData.user?.id,
-              email: signupData.user?.email,
+              id: data.user.id,
+              email: data.user.email,
               first_name: formData.firstName,
               last_name: formData.lastName,
               zip_code: formData.zipCode,
@@ -295,62 +286,42 @@ export default function SignupScreen() {
               address_line_1: formData.address,
               autoimmune_diseases: formData.autoimmuneDiseases,
             });
-            setShowVerifiedModal(true);
-          console.log('public users update success');
-          console.log(data);
-
-          
+            
           if (userError) {
-            showToast(userError.message);
+            console.error('User profile creation error:', userError);
+            showToast('Failed to create user profile: ' + userError.message);
             return;
           }
-        } catch (error) {
-          console.error('Signup error:', error);
-          showToast('An unexpected error occurred');
+          
+          console.log('User profile created successfully');
+          setShowVerifiedModal(true);
+        } catch (profileError) {
+          console.error('Profile creation error:', profileError);
+          showToast('An error occurred while creating your profile');
           return;
         }
       }
 
-      if (error) {
-        showToast(error.message);
+        // Save patient profile data
+        const autoimmuneDiseaseText = formData.autoimmuneDiseases.join(', ');
+      try {
+        const { error: patientError } = await supabase
+          .from('patients')
+          .insert({
+            user_id: data.user.id,
+            chronic_conditions: autoimmuneDiseaseText,
+          });
+
+        if (patientError) {
+          console.error('Patient profile error:', patientError);
+        }
+
+        setShowVerifiedModal(true);
+      } catch (error) {
+        console.error('Patient profile error:', error);
+        showToast('An error occurred while creating your profile');
         return;
       }
-
-      //if (data.user) {
-      //  // Save user profile data
-      //  const { error: profileError } = await supabase
-      //    .from('users')
-      //    .update({
-      //      first_name: formData.firstName,
-      //      last_name: formData.lastName,
-      //      address_line_1: formData.address,
-      //      city: formData.city,
-      //      state: formData.state,
-      //      zip_code: formData.zipCode,
-      //      autoimmune_diseases: formData.autoimmuneDiseases,
-      //    })
-      //    .eq('id', data.user.id);
-//
-      //  if (profileError) {
-      //    console.error('Profile update error:', profileError);
-      //  }
-//
-      //  // Save patient profile data
-      //  const autoimmuneDiseaseText = formData.autoimmuneDiseases.join(', ');
-//
-      //  const { error: patientError } = await supabase
-      //    .from('patients')
-      //    .insert({
-      //      user_id: data.user.id,
-      //      chronic_conditions: autoimmuneDiseaseText,
-      //    });
-//
-      //  if (patientError) {
-      //    console.error('Patient profile error:', patientError);
-      //  }
-//
-      //  setShowVerifiedModal(true);
-      //}
     } catch (error) {
       console.error('Signup error:', error);
       showToast('An unexpected error occurred');

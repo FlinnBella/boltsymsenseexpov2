@@ -95,7 +95,7 @@ export default function AIScreen() {
   const sendMessageToWebhook = async (message: string): Promise<string> => {
     try {
       console.log('Sending message:', message);
-      const response = await fetch(`${WEBHOOK_URL}?message=${encodeURIComponent(message)}`, {
+      const response = await fetch(`${WEBHOOK_URL}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

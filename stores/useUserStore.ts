@@ -569,10 +569,18 @@ export const useUserStore = create<UserStore>()(
       initializeUserData: async () => {
         const store = get();
         try {
+          // First fetch profile and preferences
           await Promise.all([
             store.fetchUserProfile(),
-            store.fetchHealthData(),
             store.fetchPreferences(),
+          ]);
+          
+          // Then fetch health data and tracking data after profile is loaded
+          await Promise.all([
+            store.fetchHealthData(),
+            store.fetchMedications(),
+            store.fetchSymptoms(),
+            store.fetchFoodLogs(),
           ]);
         } catch (error) {
           console.error('Error initializing user data:', error);

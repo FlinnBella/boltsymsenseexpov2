@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
@@ -120,6 +120,16 @@ export default function AuthGuard({ children }: AuthGuardProps) {
             sessionToken: session.access_token 
           });
           await initializeUserData();
+        }
+
+        else {  
+            await AsyncStorage.removeItem('authToken');
+            clearUserData();
+            setAuth({ 
+              isAuthenticated: false, 
+              isLoading: false,
+              sessionToken: undefined 
+            });       
         }
       }
     );

@@ -17,13 +17,15 @@ import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
 import { useUserStore } from '@/stores/useUserStore';
+import TavusVideoChat from '@/components/TavisConv';
 //TODO: Use frontend to update the chat message for user. Let the ai have a loading bubbles 
 //while waiting for response. 
 
 
 // Webhook URL for AI communication
 const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
-
+// https://evandickinson.app.n8n.cloud/webhook-test/326bdedd-f7e9-41c8-a402-ca245cd19d0a - test
+// https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a - prod
 export interface ChatMessage {
   id: string;
   text: string;
@@ -58,10 +60,45 @@ interface Doctor {
   }>;
 }
 
-interface DoctorApiResponse {
-  result_count: number;
-  results: Doctor[];
+interface aiResponse {
+  output: string;
+  filterResponse: string;
+  message: string;
+  response: string; 
 }
+
+// Move MessageBubble outside the main component to prevent re-renders
+const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
+  <Animated.View
+    entering={FadeInRight.delay(100).duration(400)}
+    style={[
+      styles.messageBubble,
+      message.isUser ? styles.userMessage : styles.aiMessage,
+    ]}
+  >
+    <View style={styles.messageHeader}>
+      <View style={[
+        styles.messageIcon,
+        { backgroundColor: message.isUser ? '#3B82F6' : '#10B981' }
+      ]}>
+        {message.isUser ? (
+          <User color="white" size={16} />
+        ) : (
+          <Bot color="white" size={16} />
+        )}
+      </View>
+      <Text style={styles.messageTime}>
+        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </Text>
+    </View>
+    <Text style={[
+      styles.messageText,
+      message.isUser ? styles.userMessageText : styles.aiMessageText
+    ]}>
+      {message.text}
+    </Text>
+  </Animated.View>
+));
 
 export default function AIScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -92,29 +129,72 @@ export default function AIScreen() {
     }, 100);
   };
 
-  const sendMessageToWebhook = async (message: string): Promise<string> => {
+  const sendMessageToWebhook = async (message: string) => {
     try {
       console.log('Sending message:', message);
+      console.log('User profile data:', {
+        zipCode: userProfile?.zip_code,
+        diseases: userProfile?.autoimmune_diseases,
+        medicationsCount: medications?.length || 0,
+        symptomsCount: symptoms?.length || 0,
+        foodLogsCount: foodLogs?.length || 0,
+      });
+
+      // Create a clean payload without undefined values and sanitized data
+      console.log('User profile data:', userProfile?.id);
+      const payload = {
+        message,
+        user_id: userProfile?.id || null,
+        zipCode: userProfile?.zip_code || null,
+        diseases: userProfile?.autoimmune_diseases || null,
+        medications: (medications || []).map(med => ({
+          name: med.medication_name,
+          dosage: med.dosage,
+          taken_at: med.taken_at,
+          notes: med.notes
+        })),
+        symptoms: (symptoms || []).map(symptom => ({
+          name: symptom.symptom_name,
+          severity: symptom.severity,
+          description: symptom.description,
+          logged_at: symptom.logged_at
+        })),
+        food_log: (foodLogs || []).map(food => ({
+          name: food.food_name,
+          negative_effects: food.negative_effects,
+          consumed_at: food.consumed_at
+        })),
+      };
+
+      // Validate payload before sending
+      try {
+        const payloadString = JSON.stringify(payload, null, 2);
+        console.log('Sending payload:', payloadString);
+        
+        // Double-check payload can be parsed back
+        JSON.parse(payloadString);
+      } catch (stringifyError) {
+        console.error('Payload serialization error:', stringifyError);
+        console.error('Problematic payload:', payload);
+        throw new Error('Invalid payload structure - cannot serialize to JSON');
+      }
+
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      //const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
       const response = await fetch(`${WEBHOOK_URL}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          timestamp: new Date().toISOString(),
-          zipCode: userProfile?.zip_code,
-          diseases: userProfile?.autoimmune_diseases,
-          //filtered to last 30 entries from separate data structures
-          medications: medications,
-          symptoms: symptoms,
-          //food logs from separate data structure
-          food_log: foodLogs,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      //console.log('Response status:', response.status);
-      //console.log('Response headers:', response.headers);
+      //clearTimeout(timeoutId);
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -122,23 +202,17 @@ export default function AIScreen() {
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
 
-      // Get the response text first to debug what we're receiving
-      console.log(response.json);
-      const data = await response.json();
-      console.log('Raw response body:', data);
-
-      // Check if the response is empty
-      if (!data) {
-        throw new Error('Empty response from webhook');
-      }
-      const dataoutput = data[0].text || data[0].filterResponse
-      // Handle the actual format: [{"text": "response"}]
-      if (data.length > 0) {
-        return dataoutput;
-      } 
-      else {
-        console.error('Unexpected response format:', data);
-        throw new Error('Invalid response format from webhook');
+      // Get the response data with better error handling
+      try {
+        const data = await response.json();
+        console.log('Raw response body:', data);
+        return data;
+      } catch (jsonError) {
+        console.error('JSON parsing error:', jsonError);
+        // Try to get text response if JSON parsing fails
+        const textResponse = await response.text();
+        console.log('Text response:', textResponse);
+        throw new Error(`Invalid JSON response: ${textResponse.substring(0, 100)}...`);
       }
     } catch (error) {
       console.error('Error sending message to webhook:', error);
@@ -160,13 +234,15 @@ export default function AIScreen() {
     setInputText('');
     setIsLoading(true);
     try {
+      //Need to add new type to handle n8n data.
       const aiResponse = await sendMessageToWebhook(inputText);
-      setMessages(prev => [...prev, {
+      const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: aiResponse,
+        text: aiResponse.output || 'No response from AI',
         isUser: false,
         timestamp: new Date(),
-      }]);
+      };
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('Error sending message to webhook:', error);
       const errorMessage: ChatMessage = {
@@ -196,13 +272,13 @@ export default function AIScreen() {
       // Ask user for location permission first
       const userConsent = await showLocationPermissionAlert();
       if (!userConsent) {
-        //const cancelMessage: ChatMessage = {
-        //  id: Date.now().toString(),
-        //  role: 'assistant',
-        //  content: 'Location access is needed to find doctors near you. You can try again anytime or use the zip code from your profile.',
-        //  timestamp: new Date(),
-        //};
-        //setMessages(prev => [...prev, cancelMessage]);
+        const cancelMessage: ChatMessage = {
+          id: Date.now().toString(),
+          isUser: false,
+          text: 'Location access is needed to find doctors near you. You can try again anytime or use the zip code from your profile.',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, cancelMessage]);
         return;
       }
 
@@ -349,40 +425,13 @@ export default function AIScreen() {
     );
   };
 
-  const MessageBubble = ({ message }: { message: ChatMessage }) => (
-    <Animated.View
-      entering={FadeInRight.delay(100).duration(400)}
-      style={[
-        styles.messageBubble,
-        message.isUser ? styles.userMessage : styles.aiMessage,
-      ]}
-    >
-      <View style={styles.messageHeader}>
-        <View style={[
-          styles.messageIcon,
-          { backgroundColor: message.isUser ? '#3B82F6' : '#10B981' }
-        ]}>
-          {message.isUser ? (
-            <User color="white" size={16} />
-          ) : (
-            <Bot color="white" size={16} />
-          )}
-        </View>
-        <Text style={styles.messageTime}>
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-      <Text style={[
-        styles.messageText,
-        message.isUser ? styles.userMessageText : styles.aiMessageText
-      ]}>
-        {message.text}
-      </Text>
-    </Animated.View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
+      {/*<TavusVideoChat 
+        onClose={() => {}}
+        conversationalContext="You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance."
+        customGreeting="Hello! I'm Anna, your nurse assistant. How can I help you today?"
+      />*/}
       {/* Header */}
       <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
         <LinearGradient colors={['#10B981', '#059669']} style={styles.headerGradient}>

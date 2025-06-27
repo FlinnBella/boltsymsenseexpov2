@@ -11,21 +11,14 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Bot, User, Loader, MapPin, ToggleLeft, Navigation } from 'lucide-react-native';
-import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
+import { Send, Bot, User, Loader, MapPin } from 'lucide-react-native';
+import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
-import { useUserStore } from '@/stores/useUserStore';
-import TavusVideoChat from '@/components/TavisConv';
-//TODO: Use frontend to update the chat message for user. Let the ai have a loading bubbles 
-//while waiting for response. 
-
 
 // Webhook URL for AI communication
 const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
-// https://evandickinson.app.n8n.cloud/webhook-test/326bdedd-f7e9-41c8-a402-ca245cd19d0a - test
-// https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a - prod
+
 export interface ChatMessage {
   id: string;
   text: string;
@@ -60,13 +53,6 @@ interface Doctor {
   }>;
 }
 
-interface aiResponse {
-  output: string;
-  filterResponse: string;
-  message: string;
-  response: string; 
-}
-
 // Move MessageBubble outside the main component to prevent re-renders
 const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
   <Animated.View
@@ -79,14 +65,17 @@ const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
     <View style={styles.messageHeader}>
       <View style={[
         styles.messageIcon,
-        { backgroundColor: message.isUser ? 'null' : '#000000' }
+        { backgroundColor: message.isUser ? '#3B82F6' : '#000000' }
       ]}>
         {message.isUser ? (
-          null
+          <User color="white" size={16} />
         ) : (
           <Bot color="white" size={16} />
         )}
       </View>
+      <Text style={styles.messageTime}>
+        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </Text>
     </View>
     <Text style={[
       styles.messageText,
@@ -97,21 +86,39 @@ const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
   </Animated.View>
 ));
 
+// Initial chat placeholder component
+const InitialChatPlaceholder = ({ onFirstMessage }: { onFirstMessage: () => void }) => {
+  useEffect(() => {
+    // This will be called when the component unmounts (when first message is sent)
+    return () => {
+      onFirstMessage();
+    };
+  }, []);
+
+  return (
+    <Animated.View 
+      entering={FadeInUp.duration(600)}
+      exiting={FadeOutDown.duration(300)}
+      style={styles.placeholderContainer}
+    >
+      <View style={styles.placeholderIcon}>
+        <Bot color="#10B981" size={48} />
+      </View>
+      <Text style={styles.placeholderTitle}>Chat with SymSense AI</Text>
+      <Text style={styles.placeholderSubtitle}>
+        Ask me about your health, medications, symptoms, or get personalized recommendations
+      </Text>
+    </Animated.View>
+  );
+};
+
 export default function AIScreen() {
-  //Get rid of the chat, have the icon centered (like deepseek) until the user sends a chat
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      text: 'Hello! I\'m your AI health assistant. I can help you with health questions, medication reminders, and wellness tips. How can I assist you today?',
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [showPlaceholder, setShowPlaceholder] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
-  const textInputRef = useRef<TextInput>(null);
   const userProfile = useUserProfile();
   const medications = useMedications();
   const symptoms = useSymptoms();
@@ -138,8 +145,6 @@ export default function AIScreen() {
         foodLogsCount: foodLogs?.length || 0,
       });
 
-      // Create a clean payload without undefined values and sanitized data
-      console.log('User profile data:', userProfile?.id);
       const payload = {
         message,
         user_id: userProfile?.id || null,
@@ -164,23 +169,6 @@ export default function AIScreen() {
         })),
       };
 
-      // Validate payload before sending
-      try {
-        const payloadString = JSON.stringify(payload, null, 2);
-        console.log('Sending payload:', payloadString);
-        
-        // Double-check payload can be parsed back
-        JSON.parse(payloadString);
-      } catch (stringifyError) {
-        console.error('Payload serialization error:', stringifyError);
-        console.error('Problematic payload:', payload);
-        throw new Error('Invalid payload structure - cannot serialize to JSON');
-      }
-
-      // Add timeout to the fetch request
-      const controller = new AbortController();
-      //const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
       const response = await fetch(`${WEBHOOK_URL}`, {
         method: 'POST',
         headers: {
@@ -189,29 +177,13 @@ export default function AIScreen() {
         body: JSON.stringify(payload),
       });
 
-      //clearTimeout(timeoutId);
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.log('Error response body:', errorText);
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
 
-      // Get the response data with better error handling
-      try {
-        const data = await response.json();
-        console.log('Raw response body:', data);
-        return data;
-      } catch (jsonError) {
-        console.error('JSON parsing error:', jsonError);
-        // Try to get text response if JSON parsing fails
-        const textResponse = await response.text();
-        console.log('Text response:', textResponse);
-        throw new Error(`Invalid JSON response: ${textResponse.substring(0, 100)}...`);
-      }
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('Error sending message to webhook:', error);
       throw new Error('Unable to connect to AI assistant. Please try again later.');
@@ -220,6 +192,11 @@ export default function AIScreen() {
 
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
+
+    // Hide placeholder on first message
+    if (showPlaceholder) {
+      setShowPlaceholder(false);
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -231,8 +208,8 @@ export default function AIScreen() {
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
+    
     try {
-      //Need to add new type to handle n8n data.
       const aiResponse = await sendMessageToWebhook(inputText);
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -250,7 +227,6 @@ export default function AIScreen() {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
-      // Optionally show an alert for connection errors
       Alert.alert(
         'Connection Error',
         'Unable to reach the AI assistant. Please check your internet connection and try again.',
@@ -261,184 +237,11 @@ export default function AIScreen() {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const fetchAndRenderDoctors = async () => {
-    try {
-      // Ask user for location permission first
-      const userConsent = await showLocationPermissionAlert();
-      if (!userConsent) {
-        const cancelMessage: ChatMessage = {
-          id: Date.now().toString(),
-          isUser: false,
-          text: 'Location access is needed to find doctors near you. You can try again anytime or use the zip code from your profile.',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, cancelMessage]);
-        return;
-      }
-
-      // Get current location and zip code
-      const locationResult = await getCurrentLocationWithZipCode();
-      
-      // Check if location fetch failed
-      if ('code' in locationResult) {
-        const locationError = locationResult as LocationError;
-        console.error('Location error:', locationError);
-        
-        // Fall back to user's saved zip code if available
-        const fallbackZipCode = userProfile?.zip_code;
-        if (fallbackZipCode) {
-          const fallbackMessage: ChatMessage = {
-            id: Date.now().toString(),
-            isUser: false,
-            text: `Unable to get your current location (${locationError.message}). Using your saved zip code: ${fallbackZipCode}`,
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, fallbackMessage]);
-        } else {
-          const errorMessage: ChatMessage = {
-            id: Date.now().toString(),
-            isUser: false,
-            text: `Unable to find doctors: ${locationError.message}`,
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, errorMessage]);
-          return;
-        }
-      }
-
-      // Use current location zip code or fall back to saved zip code
-      const locationData = locationResult as LocationData;
-      const zipCodeToUse = ('zipCode' in locationResult) ? locationData.zipCode : userProfile?.zip_code;
-      
-      if (!zipCodeToUse) {
-        const noZipMessage: ChatMessage = {
-          id: Date.now().toString(),
-          isUser: false,
-          text: 'No zip code available. Please update your profile with your zip code or enable location services.',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, noZipMessage]);
-        return;
-      }
-
-      // Fetch doctors using the zip code
-      const response = await fetch(`https://apitest-oww0.onrender.com/api/doctors/${zipCodeToUse}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch doctors');
-      }
-      
-      const data = await response.json();
-      console.log(data);
-      
-      // Store the doctors in state
-      setDoctors(data.results);
-      
-      // Add a message to show the doctors in the chat
-      const locationText = ('zipCode' in locationResult) ? 
-        `your current location (${locationData.zipCode})` : 
-        `your saved zip code (${userProfile?.zip_code})`;
-      
-      const doctorMessage: ChatMessage = {
-        id: Date.now().toString(),
-        isUser: false,
-        text: `Found ${data.result_count} doctors near ${locationText}:`,
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, doctorMessage]);
-      renderDoctorList(data.results);
-      
-      
-    } catch (error) {
-      console.error('Error fetching doctors:', error);
-      
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString(),
-        isUser: false,
-        text: 'Sorry, I had trouble finding doctors in your area. Please try again later.',
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const renderDoctorList = (doctorList : Doctor[]) => {
-    return (
-      <Animated.View
-        entering={FadeInRight.delay(1000).duration(400)}
-        style={[
-          styles.messageContainer,
-          styles.assistantMessageContainer,
-        ]}
-      >
-        <View style={styles.doctorListContainer}>
-          <Text style={styles.doctorListTitle}>Recommended Doctors Near You</Text>
-          {doctorList.map((doctor, index) => {
-            const doctorName = doctor.basic?.name || 
-                             `${doctor.basic?.first_name || ''} ${doctor.basic?.last_name || ''}`.trim() || 'N/A';
-            const specialty = doctor.taxonomies?.find(t => t.primary)?.desc || 
-                             doctor.taxonomies?.[0]?.desc || 'N/A';
-            const address = doctor.addresses?.[0] || doctor.practiceLocations?.[0];
-            const addressString = address ? 
-              `${address.address_1}${address.address_2 ? ', ' + address.address_2 : ''}, ${address.city}, ${address.state} ${address.postal_code}` : 
-              'Address not available';
-
-            return (
-              <View key={index} style={styles.doctorCard}>
-                <View style={styles.doctorHeader}>
-                  <Text style={styles.doctorName}>
-                    {doctorName}
-                  </Text>
-                  <Text style={styles.doctorSpecialty}>
-                    {specialty}
-                  </Text>
-                </View>
-                
-                <View style={styles.doctorInfo}>
-                  <View style={styles.doctorInfoRow}>
-                    <MapPin color="#6B7280" size={16} />
-                    <Text style={styles.doctorInfoText}>
-                      {addressString}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </Animated.View>
-    );
-  };
-
-
-  //Keep track of message count, have a giraffe head in the center with text if no messages.
   return (
     <SafeAreaView style={styles.container}>
-      {/*<TavusVideoChat 
-        onClose={() => {}}
-        conversationalContext="You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance."
-        customGreeting="Hello! I'm Anna, your nurse assistant. How can I help you today?"
-      />*/}
       {/* Header */}
       <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-        
-
-             {/* <Text style={styles.headerTitle}>New Chat</Text>*/}
- 
-        
+        <Text style={styles.headerTitle}>SymSense AI</Text>
       </Animated.View>
 
       {/* Messages */}
@@ -453,9 +256,13 @@ export default function AIScreen() {
           contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
         >
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
+          {showPlaceholder && messages.length === 0 ? (
+            <InitialChatPlaceholder onFirstMessage={() => {}} />
+          ) : (
+            messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))
+          )}
           
           {isLoading && (
             <Animated.View
@@ -463,7 +270,7 @@ export default function AIScreen() {
               style={[styles.messageBubble, styles.aiMessage]}
             >
               <View style={styles.messageHeader}>
-                <View style={[styles.messageIcon, { backgroundColor: '#10B981' }]}>
+                <View style={[styles.messageIcon, { backgroundColor: '#000000' }]}>
                   <Bot color="white" size={16} />
                 </View>
                 <Text style={styles.messageTime}>Now</Text>
@@ -475,11 +282,6 @@ export default function AIScreen() {
             </Animated.View>
           )}
         </ScrollView>
-
-        {/*New Chat Button*/}
-        {/*<View style={styles.newChatButton}>
-          <Text style={styles.newChatButtonText}>New Chat</Text>
-        </View>*/}
 
         {/* Input */}
         <View style={styles.inputContainer}>
@@ -508,11 +310,11 @@ export default function AIScreen() {
       </KeyboardAvoidingView>
 
       {/* Disclaimer */}
-      {/*<View style={styles.disclaimer}>
+      <View style={styles.disclaimer}>
         <Text style={styles.disclaimerText}>
           This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
-        </Text>*/}
-      {/*</View>*/}
+        </Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -524,37 +326,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   header: {
-    marginBottom: 16,
-  },
-  headerGradient: {
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 10,
-  },
-  headerContent: {
-    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
     color: 'black',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
   },
   chatContainer: {
     flex: 1,
@@ -565,11 +344,40 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     paddingBottom: 20,
+    flexGrow: 1,
+  },
+  placeholderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  placeholderIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ECFDF5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  placeholderTitle: {
+    fontSize: 24,
+    fontFamily: 'Poppins-Bold',
+    color: '#1F2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  placeholderSubtitle: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
   },
   messageBubble: {
     marginBottom: 16,
     maxWidth: '85%',
-    flexDirection: 'row',
   },
   userMessage: {
     alignSelf: 'flex-end',
@@ -624,11 +432,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   inputContainer: {
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: 'white',
-    borderRadius: 16,
-    borderTopWidth: 5,
+    borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
   inputWrapper: {
@@ -637,7 +444,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 0,
+    paddingVertical: 8,
   },
   textInput: {
     flex: 1,
@@ -672,63 +479,5 @@ const styles = StyleSheet.create({
     color: '#92400E',
     textAlign: 'center',
     lineHeight: 16,
-  },
-  // Doctor-related styles
-  messageContainer: {
-    marginBottom: 16,
-  },
-  assistantMessageContainer: {
-    alignSelf: 'flex-start',
-  },
-  doctorListContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 8,
-  },
-  doctorListTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins-Bold',
-    color: '#1F2937',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  doctorCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  doctorHeader: {
-    marginBottom: 8,
-  },
-  doctorName: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  doctorSpecialty: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#10B981',
-    marginBottom: 8,
-  },
-  doctorInfo: {
-    gap: 8,
-  },
-  doctorInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  doctorInfoText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    flex: 1,
-    lineHeight: 20,
   },
 });

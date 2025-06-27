@@ -58,13 +58,19 @@ export interface UserPreferences {
     medications: boolean;
     appointments: boolean;
   };
-  dashboard_layout?: any; // jsonb field for dashboard configuration
+  dashboard_layout?: any;
 }
 
 export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   sessionToken?: string;
+}
+
+// Enhanced FoodLog interface with calories
+export interface EnhancedFoodLog extends FoodLog {
+  calories?: number;
+  portion_size?: string;
 }
 
 interface UserStore {
@@ -79,7 +85,7 @@ interface UserStore {
   // Health tracking data
   medications: MedicationLog[];
   symptoms: SymptomLog[];
-  foodLogs: FoodLog[];
+  foodLogs: EnhancedFoodLog[];
   
   // Loading states
   isLoadingProfile: boolean;
@@ -674,9 +680,3 @@ export const useIsLoadingPreferences = () => useUserStore((state) => state.isLoa
 export const useIsLoadingMedications = () => useUserStore((state) => state.isLoadingMedications);
 export const useIsLoadingSymptoms = () => useUserStore((state) => state.isLoadingSymptoms);
 export const useIsLoadingFoodLogs = () => useUserStore((state) => state.isLoadingFoodLogs);
-
-// Note: useLoadingStates has been removed to prevent infinite loops.
-// Use individual loading selectors instead:
-// - useIsLoadingProfile()
-// - useIsLoadingHealthData() 
-// - useIsLoadingPreferences()

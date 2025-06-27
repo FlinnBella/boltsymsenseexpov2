@@ -8,7 +8,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { 
   Activity, 
   Heart, 
@@ -23,7 +22,6 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
-import { getUserProfile } from '@/lib/api/profile';
 import HealthCard from '@/components/HealthCard';
 import MetricCard from '@/components/MetricCard';
 import CircularProgress from '@/components/CircularProgress';
@@ -31,18 +29,16 @@ import ConnectionStatus from '@/components/ConnectionStatus';
 import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
 import FoodLogModal from '@/components/Modal/FoodLogModal';
 import LoadingScreen from '@/components/LoadingScreen';
-import { getUserPreferences, saveUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
-import { getUserPreferencesFromDB, updateUserPreferencesInDB, getCachedHealthData, updateCachedHealthData } from '@/lib/api/profile';
-import { getUserPreferences as getHealthTrackingPreferences, createOrUpdateUserPreferences, dismissWearablePrompt } from '@/lib/api/healthTracking';
-import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { useUserStore, useUserProfile, useHealthData, useUserPreferences, useIsLoadingProfile, useIsLoadingHealthData, useIsLoadingPreferences } from '@/stores/useUserStore';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showWearableModal, setShowWearableModal] = useState(false);
   const [showFoodModal, setShowFoodModal] = useState(false);
+  
   // Use Zustand store instead of local state
   const userProfile = useUserProfile();
   const healthData = useHealthData();
@@ -51,6 +47,9 @@ export default function DashboardScreen() {
   const isLoadingHealthData = useIsLoadingHealthData();
   const isLoadingPreferences = useIsLoadingPreferences();
   const { fetchHealthData, updatePreferences } = useUserStore();
+  
+  // Theme colors
+  const colors = useThemeColors();
 
   useEffect(() => {
     initializeDashboard();
@@ -74,12 +73,6 @@ export default function DashboardScreen() {
       setLoading(false);
     }
   };
-
-  // Remove loadUserData - using Zustand store
-
-  // Remove loadHealthData - using Zustand store
-
-  // Remove loadUserPreferences - using Zustand store
 
   const checkWearablePrompt = async () => {
     try {
@@ -132,9 +125,7 @@ export default function DashboardScreen() {
 
   return (
     <>
-      {/*<LoadingScreen visible={loading} />*/}
-      
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
         <ConnectionStatus />
         
         <ScrollView
@@ -147,31 +138,25 @@ export default function DashboardScreen() {
           {/* Header */}
           <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
             <View>
-              <Text style={styles.greeting}>Good Morning</Text>
-              <Text style={styles.userName}>
+              <Text style={[styles.greeting, { color: colors.textSecondary }]}>Good Morning</Text>
+              <Text style={[styles.userName, { color: colors.text }]}>
                 {userProfile?.first_name ? capitalizeFirstLetter(userProfile.first_name) : 'User'}
               </Text>
             </View>
-            <TouchableOpacity style={styles.notificationButton}>
-              <Bell color="#6B7280" size={24} />
+            <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.surface }]}>
+              <Bell color={colors.textSecondary} size={24} />
             </TouchableOpacity>
           </Animated.View>
 
           {/* Today's Summary */}
           <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.section}>
-            <Text style={styles.sectionTitle}></Text>
-            <View style={styles.summaryCard}>
-              <LinearGradient
-                colors={['#3B82F6', '#1E40AF']}
-                style={styles.summaryGradient}
-              >
-                <Text style={styles.summaryText}>You're doing great!</Text>
-                <Text style={styles.summarySubtext}>
-                  You've completed {Math.round((calculateProgress(healthData.steps, healthData.HealthGoals.steps) + calculateProgress(healthData.calories, healthData.HealthGoals.calories)) / 2)}% of your daily goals
-                </Text>
-              </LinearGradient>
+            <View style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
+              <Text style={styles.summaryText}>You're doing great!</Text>
+              <Text style={styles.summarySubtext}>
+                You've completed {Math.round((calculateProgress(healthData.steps, healthData.HealthGoals.steps) + calculateProgress(healthData.calories, healthData.HealthGoals.calories)) / 2)}% of your daily goals
+              </Text>
             </View>
-                  </Animated.View>
+          </Animated.View>
 
           {/* Main Health Cards */}
           <Animated.View entering={FadeInUp.delay(300).duration(600)} style={styles.section}>
@@ -183,7 +168,7 @@ export default function DashboardScreen() {
                       title="Steps"
                       value={healthData.steps.toLocaleString()}
                       icon={Footprints}
-                      colors={['#3B82F6', '#1E40AF']}
+                      color="#3B82F6"
                       progress={calculateProgress(healthData.steps, healthData.HealthGoals.steps)}
                       delay={300}
                     />
@@ -196,7 +181,7 @@ export default function DashboardScreen() {
                       value={healthData.calories}
                       unit="kcal"
                       icon={Flame}
-                      colors={['#F97316', '#EA580C']}
+                      color="#F97316"
                       progress={calculateProgress(healthData.calories, healthData.HealthGoals.calories)}
                       delay={400}
                     />
@@ -208,10 +193,7 @@ export default function DashboardScreen() {
                 <View style={styles.cardFull}>
                   <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
                     <View style={styles.heartRateCard}>
-                      <LinearGradient
-                        colors={['#EF4444', '#DC2626']}
-                        style={styles.heartRateGradient}
-                      >
+                      <View style={[styles.heartRateGradient, { backgroundColor: '#EF4444' }]}>
                         <View style={styles.heartRateHeader}>
                           <Heart color="white" size={24} />
                           <Text style={styles.heartRateTitle}>Heart Rate</Text>
@@ -242,7 +224,7 @@ export default function DashboardScreen() {
                             </View>
                           </View>
                         </View>
-                      </LinearGradient>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -253,9 +235,9 @@ export default function DashboardScreen() {
         {/* Health Metrics */}
         <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Health Metrics</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Health Metrics</Text>
             <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
+              <Text style={[styles.viewAllText, { color: colors.primary }]}>View All</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.metricsGrid}>
@@ -278,36 +260,36 @@ export default function DashboardScreen() {
 
         {/* Quick Actions */}
         <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background }]} onPress={() => router.push('/(tabs)/symptomtracker')}>
               <View style={[styles.actionIcon, { backgroundColor: '#3B82F6' }]}>
                 <Plus color="white" size={24} />
               </View>
-              <Text style={styles.actionTitle}>Log Symptoms</Text>
-              <Text style={styles.actionSubtitle}>Track how you feel</Text>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>Log Symptoms</Text>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>Track how you feel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background }]} onPress={() => router.push('/(tabs)/add-medication')}>
               <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
                 <Plus color="white" size={24} />
               </View>
-              <Text style={styles.actionTitle}>Add Medication</Text>
-              <Text style={styles.actionSubtitle}>Record your meds</Text>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>Add Medication</Text>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>Record your meds</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
 
         {/* Health Insights */}
         <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Health Insights</Text>
-          <View style={styles.insightCard}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Health Insights</Text>
+          <View style={[styles.insightCard, { backgroundColor: colors.background }]}>
             <View style={styles.insightHeader}>
               <View style={[styles.insightIcon, { backgroundColor: '#F59E0B' }]}>
                 <TrendingUp color="white" size={20} />
               </View>
-              <Text style={styles.insightTitle}>Weekly Summary</Text>
+              <Text style={[styles.insightTitle, { color: colors.text }]}>Weekly Summary</Text>
             </View>
-            <Text style={styles.insightText}>
+            <Text style={[styles.insightText, { color: colors.textSecondary }]}>
               You're doing great! You've been consistently active this week. 
               Keep up the good work to reach your fitness goals.
             </Text>
@@ -335,51 +317,30 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 60,
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   scrollView: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-  },
   header: {
-    marginBottom: 0,
-    alignSelf: 'flex-start',
-  },
-  headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-  },
-  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
   greeting: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: 'rgba(0, 0, 0, 0.8)',
   },
   userName: {
     fontSize: 24,
     fontFamily: 'Poppins-Bold',
-      color: 'black',
     marginTop: 4,
   },
   notificationButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -396,16 +357,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontFamily: 'Poppins-SemiBold',
-    color: '#1F2937',
     marginBottom: 16,
   },
   viewAllText: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
-    color: '#3B82F6',
-  },
-  statsGrid: {
-    gap: 16,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -417,7 +373,6 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flex: 1,
-    backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
@@ -438,17 +393,14 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
     marginBottom: 4,
   },
   actionSubtitle: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
     textAlign: 'center',
   },
   insightCard: {
-    backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
@@ -473,21 +425,17 @@ const styles = StyleSheet.create({
   insightTitle: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
   },
   insightText: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
     lineHeight: 20,
   },
   // Missing styles
   summaryCard: {
-    marginBottom: 16,
-  },
-  summaryGradient: {
     borderRadius: 16,
     padding: 20,
+    marginBottom: 16,
   },
   summaryText: {
     fontSize: 18,

@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Home, Save, Search, Apple } from 'lucide-react-native';
+import { Chrome as Home, Save, Search, Apple } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';

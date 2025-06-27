@@ -18,7 +18,7 @@ import {
   Footprints,
   Flame,
   Bell,
-  Minus,
+  Chrome as Home,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
@@ -26,6 +26,7 @@ import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useUserStore, useUserProfile, useHealthData, useUserPreferences } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
 import { initializeHealthKit, getHealthData, HealthMetric } from '@/lib/healthKit';
+import { router } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 40;
@@ -284,6 +285,19 @@ export default function StatsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
+      {/* Header */}
+      <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
+            <Home color={colors.text} size={24} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Health Statistics</Text>
+          <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.background }]}>
+            <Bell color={colors.textSecondary} size={24} />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -291,23 +305,16 @@ export default function StatsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={[styles.greeting, { color: colors.textSecondary }]}>Good Morning</Text>
-              <Text style={[styles.userName, { color: colors.text }]}>
-                {userProfile?.first_name ? capitalizeFirstLetter(userProfile.first_name) : 'User'}
-              </Text>
-            </View>
-            <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.background }]}>
-              <Bell color={colors.textSecondary} size={24} />
-            </TouchableOpacity>
-          </View>
+        {/* Welcome Section */}
+        <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.welcomeSection}>
+          <Text style={[styles.greeting, { color: colors.textSecondary }]}>Good Morning</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>
+            {userProfile?.first_name ? capitalizeFirstLetter(userProfile.first_name) : 'User'}
+          </Text>
         </Animated.View>
 
         {/* Health Status Banner */}
-        <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.section}>
+        <Animated.View entering={FadeInUp.delay(300).duration(600)} style={styles.section}>
           <View style={[styles.statusBanner, { backgroundColor: colors.primary }]}>
             <Text style={styles.statusText}>Your Health Journey</Text>
             <Text style={styles.statusSubtext}>
@@ -317,7 +324,7 @@ export default function StatsScreen() {
         </Animated.View>
 
         {/* Metric Selector */}
-        <Animated.View entering={FadeInUp.delay(300).duration(600)} style={styles.section}>
+        <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Health Metrics</Text>
           <View style={styles.metricsSelector}>
             {METRICS.map((metric) => {
@@ -355,7 +362,7 @@ export default function StatsScreen() {
         </Animated.View>
 
         {/* Statistics Cards */}
-        <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.section}>
+        <Animated.View entering={FadeInUp.delay(500).duration(600)} style={styles.section}>
           <View style={styles.statsContainer}>
             <View style={[styles.statCard, { backgroundColor: colors.background }]}>
               <Text style={[styles.statValue, { color: colors.text }]}>
@@ -394,7 +401,7 @@ export default function StatsScreen() {
         </Animated.View>
 
         {/* Chart Section */}
-        <Animated.View entering={FadeInUp.delay(500).duration(600)} style={styles.section}>
+        <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.section}>
           <View style={[styles.chartSection, { backgroundColor: colors.background }]}>
             <View style={styles.chartHeader}>
               <Text style={[styles.chartTitle, { color: colors.text }]}>
@@ -424,7 +431,7 @@ export default function StatsScreen() {
         </Animated.View>
 
         {/* Health Insights */}
-        <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.section}>
+        <Animated.View entering={FadeInUp.delay(700).duration(600)} style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Health Insights</Text>
           <View style={[styles.insightCard, { backgroundColor: colors.background }]}>
             <View style={styles.insightHeader}>
@@ -450,7 +457,7 @@ export default function StatsScreen() {
         </Animated.View>
 
         {/* Health Tips */}
-        <Animated.View entering={FadeInUp.delay(700).duration(600)} style={styles.section}>
+        <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.section}>
           <View style={[styles.tipsSection, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
             <Text style={[styles.tipsTitle, { color: colors.warning }]}>💡 Health Tips</Text>
             <View style={styles.tipsList}>
@@ -485,24 +492,47 @@ export default function StatsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 60,
     flex: 1,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 12, // Reduced padding
+    marginBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  homeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: 'Poppins-Bold',
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   scrollView: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  welcomeSection: {
     paddingHorizontal: 20,
     marginBottom: 24,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
   },
   greeting: {
     fontSize: 16,
@@ -512,18 +542,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Poppins-Bold',
     marginTop: 4,
-  },
-  notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   section: {
     marginBottom: 24,

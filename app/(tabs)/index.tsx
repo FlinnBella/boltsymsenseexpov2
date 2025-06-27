@@ -1,569 +1,483 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  TextInput,
   TouchableOpacity,
-  RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { 
-  Activity, 
-  Heart, 
-  Target, 
-  TrendingUp,
-  Calendar,
-  Plus,
-  Zap,
-  Bell,
-  Footprints,
-  Flame
-} from 'lucide-react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import { Send, Bot, User, Loader, MapPin } from 'lucide-react-native';
+import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
+import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
+import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
 
-import { getUserProfile } from '@/lib/api/profile';
-import HealthCard from '@/components/HealthCard';
-import MetricCard from '@/components/MetricCard';
-import CircularProgress from '@/components/CircularProgress';
-import ConnectionStatus from '@/components/ConnectionStatus';
-import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
-import FoodLogModal from '@/components/Modal/FoodLogModal';
-import LoadingScreen from '@/components/LoadingScreen';
-import { getUserPreferences, saveUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
-import { getUserPreferencesFromDB, updateUserPreferencesInDB, getCachedHealthData, updateCachedHealthData } from '@/lib/api/profile';
-import { getUserPreferences as getHealthTrackingPreferences, createOrUpdateUserPreferences, dismissWearablePrompt } from '@/lib/api/healthTracking';
-import { supabase } from '@/lib/supabase';
-import { router } from 'expo-router';
-import { useUserStore, useUserProfile, useHealthData, useUserPreferences, useIsLoadingProfile, useIsLoadingHealthData, useIsLoadingPreferences } from '@/stores/useUserStore';
+// Webhook URL for AI communication
+const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
 
-export default function DashboardScreen() {
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [showWearableModal, setShowWearableModal] = useState(false);
-  const [showFoodModal, setShowFoodModal] = useState(false);
-  // Use Zustand store instead of local state
-  const userProfile = useUserProfile();
-  const healthData = useHealthData();
-  const preferences = useUserPreferences();
-  const isLoadingProfile = useIsLoadingProfile();
-  const isLoadingHealthData = useIsLoadingHealthData();
-  const isLoadingPreferences = useIsLoadingPreferences();
-  const { fetchHealthData, updatePreferences } = useUserStore();
+export interface ChatMessage {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+}
 
+interface Doctor {
+  basic: {
+    first_name: string;
+    last_name: string;
+    name: string;
+    credential?: string;
+  };
+  addresses: Array<{
+    address_1: string;
+    address_2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }>;
+  practiceLocations: Array<{
+    address_1: string;
+    address_2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }>;
+  taxonomies: Array<{
+    desc: string;
+    primary: boolean;
+  }>;
+}
+
+// Move MessageBubble outside the main component to prevent re-renders
+const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
+  <Animated.View
+    entering={FadeInRight.delay(100).duration(400)}
+    style={[
+      styles.messageBubble,
+      message.isUser ? styles.userMessage : styles.aiMessage,
+    ]}
+  >
+    <View style={styles.messageHeader}>
+      <View style={[
+        styles.messageIcon,
+        { backgroundColor: message.isUser ? '#3B82F6' : '#000000' }
+      ]}>
+        {message.isUser ? (
+          <User color="white" size={16} />
+        ) : (
+          <Bot color="white" size={16} />
+        )}
+      </View>
+      <Text style={styles.messageTime}>
+        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </Text>
+    </View>
+    <Text style={[
+      styles.messageText,
+      message.isUser ? styles.userMessageText : styles.aiMessageText
+    ]}>
+      {message.text}
+    </Text>
+  </Animated.View>
+));
+
+// Initial chat placeholder component
+const InitialChatPlaceholder = ({ onFirstMessage }: { onFirstMessage: () => void }) => {
   useEffect(() => {
-    initializeDashboard();
+    // This will be called when the component unmounts (when first message is sent)
+    return () => {
+      onFirstMessage();
+    };
   }, []);
 
-  const initializeDashboard = async () => {
-    setLoading(true);
+  return (
+    <Animated.View 
+      entering={FadeInUp.duration(600)}
+      exiting={FadeOutDown.duration(300)}
+      style={styles.placeholderContainer}
+    >
+      <View style={styles.placeholderIcon}>
+        <Bot color="#10B981" size={48} />
+      </View>
+      <Text style={styles.placeholderTitle}>Chat with SymSense AI</Text>
+      <Text style={styles.placeholderSubtitle}>
+        Ask me about your health, medications, symptoms, or get personalized recommendations
+      </Text>
+    </Animated.View>
+  );
+};
+
+export default function AIScreen() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [showPlaceholder, setShowPlaceholder] = useState(true);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const userProfile = useUserProfile();
+  const medications = useMedications();
+  const symptoms = useSymptoms();
+  const foodLogs = useFoodLogs();
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
+  const sendMessageToWebhook = async (message: string) => {
+    try {
+      console.log('Sending message:', message);
+      console.log('User profile data:', {
+        zipCode: userProfile?.zip_code,
+        diseases: userProfile?.autoimmune_diseases,
+        medicationsCount: medications?.length || 0,
+        symptomsCount: symptoms?.length || 0,
+        foodLogsCount: foodLogs?.length || 0,
+      });
+
+      const payload = {
+        message,
+        user_id: userProfile?.id || null,
+        zipCode: userProfile?.zip_code || null,
+        diseases: userProfile?.autoimmune_diseases || null,
+        medications: (medications || []).map(med => ({
+          name: med.medication_name,
+          dosage: med.dosage,
+          taken_at: med.taken_at,
+          notes: med.notes
+        })),
+        symptoms: (symptoms || []).map(symptom => ({
+          name: symptom.symptom_name,
+          severity: symptom.severity,
+          description: symptom.description,
+          logged_at: symptom.logged_at
+        })),
+        food_log: (foodLogs || []).map(food => ({
+          name: food.food_name,
+          negative_effects: food.negative_effects,
+          consumed_at: food.consumed_at
+        })),
+      };
+
+      const response = await fetch(`${WEBHOOK_URL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error sending message to webhook:', error);
+      throw new Error('Unable to connect to AI assistant. Please try again later.');
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || isLoading) return;
+
+    // Hide placeholder on first message
+    if (showPlaceholder) {
+      setShowPlaceholder(false);
+    }
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: inputText.trim(),
+      isUser: true,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
+    setIsLoading(true);
     
     try {
-      // Simulate loading time for better UX
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      await Promise.all([
-        checkWearablePrompt(),
-      ]);
-      
-      // User data is already loaded from Zustand store via AuthGuard
+      const aiResponse = await sendMessageToWebhook(inputText);
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: aiResponse.output || 'No response from AI',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error('Error initializing dashboard:', error);
+      console.error('Error sending message to webhook:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: 'I apologize, but I\'m having trouble connecting right now. Please try again later or consult with a healthcare professional for urgent medical concerns.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      Alert.alert(
+        'Connection Error',
+        'Unable to reach the AI assistant. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
-
-  // Remove loadUserData - using Zustand store
-
-  // Remove loadHealthData - using Zustand store
-
-  // Remove loadUserPreferences - using Zustand store
-
-  const checkWearablePrompt = async () => {
-    try {
-      if (!userProfile || !preferences) return;
-
-      // Show modal if user hasn't connected wearable and hasn't dismissed prompt
-      if (!preferences.wearableConnected && !preferences.wearablePromptDismissed) {
-        setTimeout(() => {
-          setShowWearableModal(true);
-        }, 1000); // Show after loading screen
-      }
-    } catch (error) {
-      console.error('Error checking wearable prompt:', error);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await fetchHealthData();
-    } catch (error) {
-      console.error('Error refreshing health data:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const calculateProgress = (current: number, goal: number) => {
-    return Math.round((current / goal) * 100);
-  };
-
-  const handleConnectWearable = () => {
-    setShowWearableModal(false);
-    router.push('/(tabs)/profile');
-  };
-
-  const handleDismissWearable = async () => {
-    setShowWearableModal(false);
-    try {
-      await updatePreferences({ wearablePromptDismissed: true });
-    } catch (error) {
-      console.error('Error dismissing wearable prompt:', error);
-    }
-  };
-
-  const capitalizeFirstLetter = (str: string) => {
-    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   };
 
   return (
-    <>
-      <LoadingScreen visible={loading} />
-      
-      <SafeAreaView style={styles.container}>
-        <ConnectionStatus />
-        
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
+        <Text style={styles.headerTitle}>SymSense AI</Text>
+      </Animated.View>
+
+      {/* Messages */}
+      <KeyboardAvoidingView
+        style={styles.chatContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
         <ScrollView
-          style={styles.scrollView}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>Good Morning</Text>
-              <Text style={styles.userName}>
-                {userProfile?.first_name ? capitalizeFirstLetter(userProfile.first_name) : 'User'}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.notificationButton}>
-              <Bell color="#6B7280" size={24} />
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* Today's Summary */}
-          <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Today's Health</Text>
-            <View style={styles.summaryCard}>
-              <LinearGradient
-                colors={['#3B82F6', '#1E40AF']}
-                style={styles.summaryGradient}
-              >
-                <Text style={styles.summaryText}>You're doing great!</Text>
-                <Text style={styles.summarySubtext}>
-                  You've completed {Math.round((calculateProgress(healthData.steps, healthData.HealthGoals.steps) + calculateProgress(healthData.calories, healthData.HealthGoals.calories)) / 2)}% of your daily goals
-                </Text>
-              </LinearGradient>
-            </View>
-                  </Animated.View>
-
-          {/* Main Health Cards */}
-          <Animated.View entering={FadeInUp.delay(300).duration(600)} style={styles.section}>
-            <View style={styles.cardGrid}>
-              <View style={styles.cardRow}>
-                <View style={styles.cardHalf}>
-                  <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
-                    <HealthCard
-                      title="Steps"
-                      value={healthData.steps.toLocaleString()}
-                      icon={Footprints}
-                      colors={['#3B82F6', '#1E40AF']}
-                      progress={calculateProgress(healthData.steps, healthData.HealthGoals.steps)}
-                      delay={300}
-                    />
-                  </TouchableOpacity>
+          {showPlaceholder && messages.length === 0 ? (
+            <InitialChatPlaceholder onFirstMessage={() => {}} />
+          ) : (
+            messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))
+          )}
+          
+          {isLoading && (
+            <Animated.View
+              entering={FadeInRight.delay(100).duration(400)}
+              style={[styles.messageBubble, styles.aiMessage]}
+            >
+              <View style={styles.messageHeader}>
+                <View style={[styles.messageIcon, { backgroundColor: '#000000' }]}>
+                  <Bot color="white" size={16} />
                 </View>
-                <View style={styles.cardHalf}>
-                  <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
-                    <HealthCard
-                      title="Calories"
-                      value={healthData.calories}
-                      unit="kcal"
-                      icon={Flame}
-                      colors={['#F97316', '#EA580C']}
-                      progress={calculateProgress(healthData.calories, healthData.HealthGoals.calories)}
-                      delay={400}
-                    />
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.messageTime}>Now</Text>
               </View>
-
-              <View style={styles.cardRow}>
-                <View style={styles.cardFull}>
-                  <TouchableOpacity onPress={() => router.push('/(tabs)/health-metrics')}>
-                    <View style={styles.heartRateCard}>
-                      <LinearGradient
-                        colors={['#EF4444', '#DC2626']}
-                        style={styles.heartRateGradient}
-                      >
-                        <View style={styles.heartRateHeader}>
-                          <Heart color="white" size={24} />
-                          <Text style={styles.heartRateTitle}>Heart Rate</Text>
-                        </View>
-                        
-                        <View style={styles.heartRateContent}>
-                          <CircularProgress
-                            size={120}
-                            strokeWidth={8}
-                            progress={75}
-                            color="white"
-                            backgroundColor="rgba(255, 255, 255, 0.3)"
-                          >
-                            <Text style={styles.heartRateValue}>
-                              {healthData.heartRate || '--'}
-                            </Text>
-                            <Text style={styles.heartRateUnit}>BPM</Text>
-                          </CircularProgress>
-                          
-                          <View style={styles.heartRateStats}>
-                            <View style={styles.heartRateStat}>
-                              <Text style={styles.heartRateStatValue}>--</Text>
-                              <Text style={styles.heartRateStatLabel}>Resting</Text>
-                            </View>
-                            <View style={styles.heartRateStat}>
-                              <Text style={styles.heartRateStatValue}>--</Text>
-                              <Text style={styles.heartRateStatLabel}>Max Today</Text>
-                            </View>
-                          </View>
-                        </View>
-                      </LinearGradient>
-                    </View>
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.loadingContainer}>
+                <Loader color="#6B7280" size={16} />
+                <Text style={styles.loadingText}>AI is thinking...</Text>
               </View>
-            </View>
-          </Animated.View>
+            </Animated.View>
+          )}
+        </ScrollView>
 
-        {/* Health Metrics */}
-        <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Health Metrics</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.metricsGrid}>
-            <MetricCard
-              title="Heart Rate"
-              value={healthData.heartRate || '--'}
-              unit="bpm"
-              icon={Heart}
-              color="#EF4444"
+        {/* Input */}
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ask me about your health..."
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={500}
+              editable={!isLoading}
             />
-            <MetricCard
-              title="Weight"
-              value="--"
-              unit="kg"
-              icon={TrendingUp}
-              color="#8B5CF6"
-            />
-          </View>
-        </Animated.View>
-
-        {/* Quick Actions */}
-        <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard}>
-              <View style={[styles.actionIcon, { backgroundColor: '#3B82F6' }]}>
-                <Plus color="white" size={24} />
-              </View>
-              <Text style={styles.actionTitle}>Log Symptoms</Text>
-              <Text style={styles.actionSubtitle}>Track how you feel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard}>
-              <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
-                <Plus color="white" size={24} />
-              </View>
-              <Text style={styles.actionTitle}>Add Medication</Text>
-              <Text style={styles.actionSubtitle}>Record your meds</Text>
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isLoading) && styles.sendButtonDisabled
+              ]}
+              onPress={sendMessage}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <Send color="white" size={20} />
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
 
-        {/* Health Insights */}
-        <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Health Insights</Text>
-          <View style={styles.insightCard}>
-            <View style={styles.insightHeader}>
-              <View style={[styles.insightIcon, { backgroundColor: '#F59E0B' }]}>
-                <TrendingUp color="white" size={20} />
-              </View>
-              <Text style={styles.insightTitle}>Weekly Summary</Text>
-            </View>
-            <Text style={styles.insightText}>
-              You're doing great! You've been consistently active this week. 
-              Keep up the good work to reach your fitness goals.
-            </Text>
-          </View>
-        </Animated.View>
-      </ScrollView>
-
-      {/* Modals */}
-      <WearableConnectionModal
-        visible={showWearableModal}
-        onConnect={handleConnectWearable}
-        onDismiss={handleDismissWearable}
-      />
-      <FoodLogModal
-        visible={showFoodModal}
-        onClose={() => setShowFoodModal(false)}
-        onSave={() => setShowFoodModal(false)}
-      />
+      {/* Disclaimer */}
+      <View style={styles.disclaimer}>
+        <Text style={styles.disclaimerText}>
+          This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
+        </Text>
+      </View>
     </SafeAreaView>
-    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 60,
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
-  scrollView: {
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: 'Poppins-Bold',
+    color: 'black',
+  },
+  chatContainer: {
     flex: 1,
   },
-  loadingContainer: {
+  messagesContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  messagesContent: {
+    paddingBottom: 20,
+    flexGrow: 1,
+  },
+  placeholderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  placeholderIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ECFDF5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  placeholderTitle: {
+    fontSize: 24,
+    fontFamily: 'Poppins-Bold',
+    color: '#1F2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  placeholderSubtitle: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  messageBubble: {
+    marginBottom: 16,
+    maxWidth: '85%',
+  },
+  userMessage: {
+    alignSelf: 'flex-end',
+  },
+  aiMessage: {
+    alignSelf: 'flex-start',
+  },
+  messageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  messageIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  messageTime: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+  },
+  messageText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    lineHeight: 22,
+    padding: 16,
+    borderRadius: 16,
+  },
+  userMessageText: {
+    backgroundColor: '#3B82F6',
+    color: 'white',
+  },
+  aiMessageText: {
+    backgroundColor: 'white',
+    color: '#1F2937',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 16,
   },
   loadingText: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
+    marginLeft: 8,
   },
-  header: {
-    marginBottom: 24,
-  },
-  headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 30,
+  inputContainer: {
     paddingHorizontal: 20,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  greeting: {
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  userName: {
-    fontSize: 24,
-    fontFamily: 'Poppins-Bold',
-    color: 'white',
-    marginTop: 4,
-  },
-  notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  section: {
-    marginBottom: 24,
-    paddingHorizontal: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#3B82F6',
-  },
-  statsGrid: {
-    gap: 16,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  actionCard: {
-    flex: 1,
+    paddingVertical: 16,
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
   },
-  actionIcon: {
-    width: 48,
-    height: 48,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#F3F4F6',
     borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#1F2937',
+    maxHeight: 100,
+    paddingVertical: 8,
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginLeft: 8,
   },
-  actionTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    marginBottom: 4,
+  sendButtonDisabled: {
+    backgroundColor: '#9CA3AF',
   },
-  actionSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    textAlign: 'center',
+  disclaimer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FEF3C7',
+    borderTopWidth: 1,
+    borderTopColor: '#F59E0B',
   },
-  insightCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  insightIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  insightTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-  },
-  insightText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    lineHeight: 20,
-  },
-  // Missing styles
-  summaryCard: {
-    marginBottom: 16,
-  },
-  summaryGradient: {
-    borderRadius: 16,
-    padding: 20,
-  },
-  summaryText: {
-    fontSize: 18,
-    fontFamily: 'Poppins-SemiBold',
-    color: 'white',
-    marginBottom: 8,
-  },
-  summarySubtext: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 20,
-  },
-  cardGrid: {
-    gap: 16,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 16,
-  },
-  cardHalf: {
-    flex: 1,
-  },
-  cardFull: {
-    flex: 1,
-  },
-  heartRateCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  heartRateGradient: {
-    padding: 20,
-    borderRadius: 16,
-  },
-  heartRateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  heartRateTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins-SemiBold',
-    color: 'white',
-    marginLeft: 12,
-  },
-  heartRateContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heartRateValue: {
-    fontSize: 32,
-    fontFamily: 'Poppins-Bold',
-    color: 'white',
-    textAlign: 'center',
-  },
-  heartRateUnit: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  heartRateStats: {
-    gap: 16,
-  },
-  heartRateStat: {
-    alignItems: 'center',
-  },
-  heartRateStatValue: {
-    fontSize: 20,
-    fontFamily: 'Poppins-SemiBold',
-    color: 'white',
-  },
-  heartRateStatLabel: {
+  disclaimerText: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
+    color: '#92400E',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });

@@ -59,7 +59,6 @@ export default function AddMedicationScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-        <LinearGradient colors={['#10B981', '#059669']} style={styles.headerGradient}>
           <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <ArrowLeft color="white" size={24} />
@@ -67,7 +66,6 @@ export default function AddMedicationScreen() {
             <Text style={styles.headerTitle}>Add Medication</Text>
             <View style={styles.placeholder} />
           </View>
-        </LinearGradient>
       </Animated.View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -144,6 +142,7 @@ export default function AddMedicationScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 60,
     flex: 1,
     backgroundColor: '#F9FAFB',
   },

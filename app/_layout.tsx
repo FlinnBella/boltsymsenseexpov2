@@ -20,7 +20,6 @@ import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AuthGuard from '@/components/AuthGuard';
 
-
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {

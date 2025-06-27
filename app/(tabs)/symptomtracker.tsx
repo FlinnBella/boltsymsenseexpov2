@@ -76,15 +76,13 @@ export default function LogSymptomsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-        <LinearGradient colors={['#EF4444', '#DC2626']} style={styles.headerGradient}>
           <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ArrowLeft color="white" size={24} />
+              <ArrowLeft color="black" size={24} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Log Symptoms</Text>
             <View style={styles.placeholder} />
           </View>
-        </LinearGradient>
       </Animated.View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -175,6 +173,7 @@ export default function LogSymptomsScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 60,
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
@@ -202,7 +201,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    color: 'white',
+    color: 'black',
   },
   placeholder: {
     width: 40,

@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 //hooks
 import { useUserProfile } from '@/stores/useUserStore';
+import { useUserStore } from '@/stores/useUserStore';
 
 export default function LoginScreen() {
 const [email, setEmail] = useState('');
@@ -20,7 +21,7 @@ const [password, setPassword] = useState('');
 const [showPassword, setShowPassword] = useState(false);
 const [loading, setLoading] = useState(false);
 const userProfile = useUserProfile();
-
+const { fetchUserProfile, setAuth } = useUserStore();
 
 const handleLogin = async () => {
   if (!email || !password) {
@@ -36,24 +37,26 @@ const handleLogin = async () => {
     });
     //console.log(data.user);
     if (data.user != null) {
-      // Fetch the user's profile from your "profiles" table
-     //const { data: profile, error: profileError } = await supabase
-     //.from('users')
-     //.select('phone')
-     //.eq('id', data.user.id)
-     //.single();
-     //console.log(profile);
-//
-     // if (profileError) {
-     //   // handle error
-     // }
-      //TODO: THIS IS DEPENDENT ON THE PREVIOUS CACHING PROBLEM
-      // else if (!profile.phone) {
-      //  // User does not have a phone number
-      //  router.replace('/(auth)/info');
-      //  return;
-      //}
-      //console.log(profile?.phone);
+      // Update auth state
+      if (data.session) {
+        await AsyncStorage.setItem('authToken', data.session.access_token);
+        setAuth({
+          isAuthenticated: true,
+          isLoading: false,
+          sessionToken: data.session.access_token,
+        });
+      }
+      
+      // Check if local cache is empty and fetch user profile if needed
+      if (!userProfile) {
+        try {
+          await fetchUserProfile();
+        } catch (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          // Continue with login even if profile fetch fails
+        }
+      }
+        
       setLoading(false);
       router.replace('/(tabs)');
       return;

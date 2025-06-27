@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity, Moon, Sun } from 'lucide-react-native';
+import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity, Moon, Sun, Chrome as Home, Camera } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import * as WebBrowser from 'expo-web-browser';
+import * as ImagePicker from 'expo-image-picker';
 
 import { supabase } from '@/lib/supabase';
 import ProfileEditModal from '@/components/Modal/ProfileEditModal';
@@ -29,7 +30,7 @@ export default function ProfileScreen() {
   const preferences = useUserPreferences();
   const isLoadingProfile = useIsLoadingProfile();
   const isLoadingPreferences = useIsLoadingPreferences();
-  const { updatePreferences, signOut, fetchUserProfile } = useUserStore();
+  const { updatePreferences, signOut, fetchUserProfile, updateUserProfile } = useUserStore();
   
   // Theme store
   const { toggleTheme } = useThemeStore();
@@ -41,10 +42,12 @@ export default function ProfileScreen() {
   const [connectedDevices, setConnectedDevices] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [showWearableConnectionModal, setShowWearableConnectionModal] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadPatientData();
     loadConnectedDevices();
+    loadProfileImage();
   }, [userProfile]);
 
   const loadPatientData = async () => {
@@ -70,6 +73,12 @@ export default function ProfileScreen() {
     }
   };
 
+  const loadProfileImage = () => {
+    if (userProfile?.profile_image_url) {
+      setProfileImage(userProfile.profile_image_url);
+    }
+  };
+
   const updateNotificationPreference = async (key: keyof typeof preferences.notifications, value: boolean) => {
     if (!preferences || !userProfile) return;
 
@@ -85,6 +94,122 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error('Error updating preferences:', error);
       Alert.alert('Error', 'Failed to update preference. Please try again.');
+    }
+  };
+
+  const handleImagePicker = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Show action sheet
+      Alert.alert(
+        'Select Profile Image',
+        'Choose how you want to select your profile image',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Camera', onPress: () => openCamera() },
+          { text: 'Photo Library', onPress: () => openImageLibrary() },
+        ]
+      );
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      Alert.alert('Error', 'Failed to request permissions');
+    }
+  };
+
+  const openCamera = async () => {
+    try {
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (cameraPermission.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera is required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening camera:', error);
+      Alert.alert('Error', 'Failed to open camera');
+    }
+  };
+
+  const openImageLibrary = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening image library:', error);
+      Alert.alert('Error', 'Failed to open image library');
+    }
+  };
+
+  const uploadProfileImage = async (imageUri: string) => {
+    if (!userProfile) return;
+
+    setLoading(true);
+    try {
+      // Create a unique filename
+      const fileExt = imageUri.split('.').pop();
+      const fileName = `${userProfile.id}-${Date.now()}.${fileExt}`;
+
+      // Convert image to blob for upload
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(fileName, blob, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(fileName);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Update user profile with image URL
+      await updateUserProfile({
+        profile_image_url: publicUrl,
+      });
+
+      setProfileImage(publicUrl);
+      Alert.alert('Success', 'Profile image updated successfully!');
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      Alert.alert('Error', 'Failed to upload profile image. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -211,16 +336,31 @@ export default function ProfileScreen() {
       
       {/* Header */}
       <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
+            <Home color={colors.text} size={24} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+          <View style={styles.placeholder} />
+        </View>
       </Animated.View>
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
         <Animated.View entering={FadeInUp.duration(600)} style={styles.profileHeaderSection}>
             <View style={styles.profileHeader}>
-              <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                <User color="white" size={32} />
-              </View>
+              <TouchableOpacity onPress={handleImagePicker} style={styles.avatarContainer}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                    <User color="white" size={32} />
+                  </View>
+                )}
+                <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
+                  <Camera color="white" size={16} />
+                </View>
+              </TouchableOpacity>
               <View style={styles.profileInfo}>
                 <Text style={[styles.profileName, { color: colors.text }]}>
                   {userProfile.first_name} {userProfile.last_name}
@@ -403,17 +543,31 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 60,
     flex: 1,
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12, // Reduced padding
+    marginBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  homeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
+  },
+  placeholder: {
+    width: 40,
   },
   scrollView: {
     flex: 1,
@@ -435,13 +589,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+  },
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
   },
   profileInfo: {
     flex: 1,

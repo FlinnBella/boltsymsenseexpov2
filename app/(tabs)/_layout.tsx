@@ -1,7 +1,7 @@
 import { Drawer } from 'expo-router/drawer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, StyleSheet } from 'react-native';
-import { MessageCircle, Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart } from 'lucide-react-native';
+import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart } from 'lucide-react-native';
 import { useThemeColors } from '@/stores/useThemeStore';
 
 export default function TabLayout() {
@@ -14,7 +14,7 @@ export default function TabLayout() {
           headerShown: true,
           headerStyle: {
             borderBottomWidth: 0,
-            height: 100,
+            height: 70, // Reduced from 100 to 70
             elevation: 0,
             shadowOpacity: 0,
             backgroundColor: colors.surface,

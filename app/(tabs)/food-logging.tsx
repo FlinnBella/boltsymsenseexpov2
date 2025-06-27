@@ -15,6 +15,7 @@ import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUserProfile } from '@/stores/useUserStore';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 // USDA FoodData Central API
 const USDA_API_KEY = 'DEMO_KEY'; // Replace with actual API key
@@ -39,6 +40,7 @@ interface FoodSearchResult {
 
 export default function FoodLoggingScreen() {
   const userProfile = useUserProfile();
+  const colors = useThemeColors();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FoodSearchResult[]>([]);
   const [selectedFood, setSelectedFood] = useState<FoodSearchResult | null>(null);
@@ -148,51 +150,51 @@ export default function FoodLoggingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
+      <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft color="black" size={24} />
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.background }]}>
+            <ArrowLeft color={colors.text} size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Food Log</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Food Log</Text>
           <View style={styles.placeholder} />
         </View>
       </Animated.View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInRight.delay(200).duration(600)} style={styles.section}>
-          <View style={styles.iconContainer}>
-            <Apple color="#F59E0B" size={24} />
+        <Animated.View entering={FadeInRight.delay(200).duration(600)} style={[styles.section, { backgroundColor: colors.background }]}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.warning + '20' }]}>
+            <Apple color={colors.warning} size={24} />
           </View>
-          <Text style={styles.sectionTitle}>Search Food</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Search Food</Text>
           
-          <View style={styles.searchContainer}>
-            <Search color="#6B7280" size={20} style={styles.searchIcon} />
+          <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Search color={colors.textSecondary} size={20} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search for food (e.g., apple, chicken breast)"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCapitalize="words"
             />
             {searching && (
-              <ActivityIndicator size="small" color="#6B7280" style={styles.searchLoader} />
+              <ActivityIndicator size="small" color={colors.textSecondary} style={styles.searchLoader} />
             )}
           </View>
 
           {searchResults.length > 0 && (
             <View style={styles.resultsContainer}>
-              <Text style={styles.resultsTitle}>Search Results:</Text>
+              <Text style={[styles.resultsTitle, { color: colors.text }]}>Search Results:</Text>
               {searchResults.map((food) => (
                 <TouchableOpacity
                   key={food.fdcId}
-                  style={styles.foodItem}
+                  style={[styles.foodItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
                   onPress={() => handleFoodSelect(food)}
                 >
                   <View style={styles.foodInfo}>
-                    <Text style={styles.foodName}>{food.description}</Text>
-                    <Text style={styles.foodCalories}>
+                    <Text style={[styles.foodName, { color: colors.text }]}>{food.description}</Text>
+                    <Text style={[styles.foodCalories, { color: colors.textSecondary }]}>
                       {food.calories ? `${food.calories} cal per 100g` : 'Calories not available'}
                     </Text>
                   </View>
@@ -202,11 +204,11 @@ export default function FoodLoggingScreen() {
           )}
 
           {selectedFood && (
-            <View style={styles.selectedFoodContainer}>
-              <Text style={styles.selectedFoodTitle}>Selected Food:</Text>
-              <View style={styles.selectedFood}>
-                <Text style={styles.selectedFoodName}>{selectedFood.description}</Text>
-                <Text style={styles.selectedFoodCalories}>
+            <View style={[styles.selectedFoodContainer, { backgroundColor: colors.success + '20', borderColor: colors.success }]}>
+              <Text style={[styles.selectedFoodTitle, { color: colors.success }]}>Selected Food:</Text>
+              <View style={[styles.selectedFood, { backgroundColor: colors.background }]}>
+                <Text style={[styles.selectedFoodName, { color: colors.text }]}>{selectedFood.description}</Text>
+                <Text style={[styles.selectedFoodCalories, { color: colors.textSecondary }]}>
                   {selectedFood.calories} calories per 100g
                 </Text>
               </View>
@@ -215,15 +217,15 @@ export default function FoodLoggingScreen() {
         </Animated.View>
 
         {selectedFood && (
-          <Animated.View entering={FadeInRight.delay(400).duration(600)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Log Details</Text>
+          <Animated.View entering={FadeInRight.delay(400).duration(600)} style={[styles.section, { backgroundColor: colors.background }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Log Details</Text>
             
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Portion Size (servings) *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Portion Size (servings) *</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 placeholder="e.g., 1, 0.5, 2"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textSecondary}
                 value={portion}
                 onChangeText={setPortion}
                 keyboardType="decimal-pad"
@@ -231,11 +233,11 @@ export default function FoodLoggingScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Notes (Optional)</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Notes (Optional)</Text>
               <TextInput
-                style={[styles.textInput, styles.multilineInput]}
+                style={[styles.textInput, styles.multilineInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 placeholder="Any additional notes about this meal..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textSecondary}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
@@ -245,8 +247,8 @@ export default function FoodLoggingScreen() {
             </View>
 
             {selectedFood.calories && (
-              <View style={styles.caloriesSummary}>
-                <Text style={styles.caloriesSummaryText}>
+              <View style={[styles.caloriesSummary, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}>
+                <Text style={[styles.caloriesSummaryText, { color: colors.primary }]}>
                   Total Calories: {Math.round((selectedFood.calories || 0) * parseFloat(portion || '1'))} cal
                 </Text>
               </View>
@@ -254,20 +256,20 @@ export default function FoodLoggingScreen() {
           </Animated.View>
         )}
 
-        <Animated.View entering={FadeInRight.delay(600).duration(600)} style={styles.infoSection}>
-          <Text style={styles.infoTitle}>💡 Food Logging Tips</Text>
+        <Animated.View entering={FadeInRight.delay(600).duration(600)} style={[styles.infoSection, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}>
+          <Text style={[styles.infoTitle, { color: colors.primary }]}>💡 Food Logging Tips</Text>
           <View style={styles.tipsList}>
-            <Text style={styles.tipItem}>• Search for specific foods for better accuracy</Text>
-            <Text style={styles.tipItem}>• Log meals as soon as you eat them</Text>
-            <Text style={styles.tipItem}>• Include portion sizes for accurate calorie tracking</Text>
-            <Text style={styles.tipItem}>• Note any reactions or how foods make you feel</Text>
+            <Text style={[styles.tipItem, { color: colors.primary }]}>• Search for specific foods for better accuracy</Text>
+            <Text style={[styles.tipItem, { color: colors.primary }]}>• Log meals as soon as you eat them</Text>
+            <Text style={[styles.tipItem, { color: colors.primary }]}>• Include portion sizes for accurate calorie tracking</Text>
+            <Text style={[styles.tipItem, { color: colors.primary }]}>• Note any reactions or how foods make you feel</Text>
           </View>
         </Animated.View>
 
         {selectedFood && (
           <Animated.View entering={FadeInRight.delay(800).duration(600)} style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.logButton, loading && styles.logButtonDisabled]}
+              style={[styles.logButton, { backgroundColor: colors.warning }, loading && styles.logButtonDisabled]}
               onPress={handleLogFood}
               disabled={loading}
             >
@@ -287,29 +289,27 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 60,
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   header: {
     marginBottom: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    color: 'black',
   },
   placeholder: {
     width: 40,
@@ -319,7 +319,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   section: {
-    backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -333,7 +332,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -341,17 +339,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'Poppins-SemiBold',
-    color: '#1F2937',
     marginBottom: 20,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     marginBottom: 16,
+    borderWidth: 1,
   },
   searchIcon: {
     marginRight: 12,
@@ -360,7 +357,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1F2937',
   },
   searchLoader: {
     marginLeft: 8,
@@ -371,16 +367,13 @@ const styles = StyleSheet.create({
   resultsTitle: {
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
-    color: '#374151',
     marginBottom: 12,
   },
   foodItem: {
-    backgroundColor: '#F9FAFB',
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   foodInfo: {
     flex: 1,
@@ -388,43 +381,35 @@ const styles = StyleSheet.create({
   foodName: {
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
     marginBottom: 4,
   },
   foodCalories: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
   },
   selectedFoodContainer: {
     marginTop: 16,
     padding: 16,
-    backgroundColor: '#ECFDF5',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#10B981',
   },
   selectedFoodTitle: {
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
-    color: '#065F46',
     marginBottom: 8,
   },
   selectedFood: {
-    backgroundColor: 'white',
     padding: 12,
     borderRadius: 8,
   },
   selectedFoodName: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
     marginBottom: 4,
   },
   selectedFoodCalories: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
   },
   inputContainer: {
     marginBottom: 20,
@@ -432,49 +417,39 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
-    color: '#374151',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1F2937',
-    backgroundColor: '#FAFAFA',
   },
   multilineInput: {
     height: 80,
     textAlignVertical: 'top',
   },
   caloriesSummary: {
-    backgroundColor: '#EFF6FF',
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
   },
   caloriesSummaryText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: '#1E40AF',
     textAlign: 'center',
   },
   infoSection: {
-    backgroundColor: '#EFF6FF',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
   },
   infoTitle: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: '#1E40AF',
     marginBottom: 12,
   },
   tipsList: {
@@ -483,14 +458,12 @@ const styles = StyleSheet.create({
   tipItem: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#1E40AF',
     lineHeight: 20,
   },
   buttonContainer: {
     paddingBottom: 40,
   },
   logButton: {
-    backgroundColor: '#F59E0B',
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 24,

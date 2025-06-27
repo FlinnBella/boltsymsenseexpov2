@@ -9,12 +9,12 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Save, CircleAlert as AlertCircle } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUserProfile } from '@/stores/useUserStore';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 const SEVERITY_LEVELS = [
   { value: 1, label: 'Very Mild', color: '#10B981' },
@@ -31,6 +31,7 @@ const SEVERITY_LEVELS = [
 
 export default function LogSymptomsScreen() {
   const userProfile = useUserProfile();
+  const colors = useThemeColors();
   const [symptomName, setSymptomName] = useState('');
   const [severity, setSeverity] = useState<number | null>(null);
   const [description, setDescription] = useState('');
@@ -74,30 +75,30 @@ export default function LogSymptomsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ArrowLeft color="black" size={24} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Log Symptoms</Text>
-            <View style={styles.placeholder} />
-          </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
+      <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.background }]}>
+            <ArrowLeft color={colors.text} size={24} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Log Symptoms</Text>
+          <View style={styles.placeholder} />
+        </View>
       </Animated.View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInRight.delay(200).duration(600)} style={styles.section}>
-          <View style={styles.iconContainer}>
-            <AlertCircle color="#EF4444" size={24} />
+        <Animated.View entering={FadeInRight.delay(200).duration(600)} style={[styles.section, { backgroundColor: colors.background }]}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.error + '20' }]}>
+            <AlertCircle color={colors.error} size={24} />
           </View>
-          <Text style={styles.sectionTitle}>Symptom Information</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Symptom Information</Text>
           
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Symptom Name *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Symptom Name *</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               placeholder="e.g., Headache, Nausea, Fatigue"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textSecondary}
               value={symptomName}
               onChangeText={setSymptomName}
               autoCapitalize="words"
@@ -105,11 +106,11 @@ export default function LogSymptomsScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Description (Optional)</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Description (Optional)</Text>
             <TextInput
-              style={[styles.textInput, styles.multilineInput]}
+              style={[styles.textInput, styles.multilineInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               placeholder="Describe your symptom in more detail..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textSecondary}
               value={description}
               onChangeText={setDescription}
               multiline
@@ -119,9 +120,9 @@ export default function LogSymptomsScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInRight.delay(400).duration(600)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Severity Level *</Text>
-          <Text style={styles.sectionSubtitle}>Rate your symptom from 1 (very mild) to 10 (unbearable)</Text>
+        <Animated.View entering={FadeInRight.delay(400).duration(600)} style={[styles.section, { backgroundColor: colors.background }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Severity Level *</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Rate your symptom from 1 (very mild) to 10 (unbearable)</Text>
           
           <View style={styles.severityGrid}>
             {SEVERITY_LEVELS.map((level) => (
@@ -129,14 +130,17 @@ export default function LogSymptomsScreen() {
                 key={level.value}
                 style={[
                   styles.severityButton,
-                  { backgroundColor: severity === level.value ? level.color : '#F3F4F6' },
+                  { 
+                    backgroundColor: severity === level.value ? level.color : colors.surface,
+                    borderColor: severity === level.value ? level.color : colors.border,
+                  },
                 ]}
                 onPress={() => setSeverity(level.value)}
               >
                 <Text
                   style={[
                     styles.severityNumber,
-                    { color: severity === level.value ? 'white' : '#374151' },
+                    { color: severity === level.value ? 'white' : colors.text },
                   ]}
                 >
                   {level.value}
@@ -144,7 +148,7 @@ export default function LogSymptomsScreen() {
                 <Text
                   style={[
                     styles.severityLabel,
-                    { color: severity === level.value ? 'white' : '#6B7280' },
+                    { color: severity === level.value ? 'white' : colors.textSecondary },
                   ]}
                 >
                   {level.label}
@@ -156,7 +160,7 @@ export default function LogSymptomsScreen() {
 
         <Animated.View entering={FadeInRight.delay(600).duration(600)} style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+            style={[styles.saveButton, { backgroundColor: colors.error }, loading && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={loading}
           >
@@ -175,15 +179,11 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 60,
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   header: {
     marginBottom: 24,
-  },
-  headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 20,
     paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   headerContent: {
     flexDirection: 'row',
@@ -194,14 +194,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    color: 'black',
   },
   placeholder: {
     width: 40,
@@ -211,7 +209,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   section: {
-    backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -225,7 +222,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FEF2F2',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -233,13 +229,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'Poppins-SemiBold',
-    color: '#1F2937',
     marginBottom: 8,
   },
   sectionSubtitle: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
     marginBottom: 20,
   },
   inputContainer: {
@@ -248,19 +242,15 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
-    color: '#374151',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1F2937',
-    backgroundColor: '#FAFAFA',
   },
   multilineInput: {
     height: 100,
@@ -278,7 +268,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   severityNumber: {
     fontSize: 18,
@@ -294,7 +283,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   saveButton: {
-    backgroundColor: '#EF4444',
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 24,

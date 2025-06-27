@@ -29,8 +29,8 @@ export const lightTheme: ThemeColors = {
 };
 
 export const darkTheme: ThemeColors = {
-  background: '#000000',
-  surface: '#111111',
+  background: '#111111',
+  surface: '#000000',
   primary: '#064E3B', // Dark jade green
   secondary: '#10B981',
   text: '#FFFFFF',

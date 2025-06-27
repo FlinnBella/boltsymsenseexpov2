@@ -209,9 +209,14 @@ export default function ProfileScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       <WearableConnectionModal visible={showWearableConnectionModal} onConnect={handleConnectWearable} onDismiss={() => setShowWearableConnectionModal(false)} />
       
+      {/* Header */}
+      <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+      </Animated.View>
+      
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
-        <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
+        <Animated.View entering={FadeInUp.duration(600)} style={styles.profileHeaderSection}>
             <View style={styles.profileHeader}>
               <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                 <User color="white" size={32} />
@@ -401,6 +406,15 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     flex: 1,
   },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: 'Poppins-Bold',
+  },
   scrollView: {
     flex: 1,
   },
@@ -413,7 +427,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter-Regular',
   },
-  header: {
+  profileHeaderSection: {
     marginBottom: 24,
     paddingHorizontal: 20,
   },

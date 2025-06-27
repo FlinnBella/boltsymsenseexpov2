@@ -11,10 +11,10 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Bot, User, Loader, MapPin } from 'lucide-react-native';
+import { Send, Bot, User, Loader, Plus, RotateCcw } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
-import { getCurrentLocationWithZipCode, showLocationPermissionAlert, LocationData, LocationError } from '@/lib/location';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 // Webhook URL for AI communication
 const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
@@ -26,35 +26,8 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-interface Doctor {
-  basic: {
-    first_name: string;
-    last_name: string;
-    name: string;
-    credential?: string;
-  };
-  addresses: Array<{
-    address_1: string;
-    address_2?: string;
-    city: string;
-    state: string;
-    postal_code: string;
-  }>;
-  practiceLocations: Array<{
-    address_1: string;
-    address_2?: string;
-    city: string;
-    state: string;
-    postal_code: string;
-  }>;
-  taxonomies: Array<{
-    desc: string;
-    primary: boolean;
-  }>;
-}
-
 // Move MessageBubble outside the main component to prevent re-renders
-const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
+const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; colors: any }) => (
   <Animated.View
     entering={FadeInRight.delay(100).duration(400)}
     style={[
@@ -65,7 +38,7 @@ const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
     <View style={styles.messageHeader}>
       <View style={[
         styles.messageIcon,
-        { backgroundColor: message.isUser ? '#3B82F6' : '#000000' }
+        { backgroundColor: message.isUser ? colors.primary : colors.text }
       ]}>
         {message.isUser ? (
           <User color="white" size={16} />
@@ -73,13 +46,15 @@ const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
           <Bot color="white" size={16} />
         )}
       </View>
-      <Text style={styles.messageTime}>
+      <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
         {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </Text>
     </View>
     <Text style={[
       styles.messageText,
-      message.isUser ? styles.userMessageText : styles.aiMessageText
+      message.isUser ? 
+        [styles.userMessageText, { backgroundColor: colors.primary }] : 
+        [styles.aiMessageText, { backgroundColor: colors.background, color: colors.text }]
     ]}>
       {message.text}
     </Text>
@@ -87,9 +62,8 @@ const MessageBubble = React.memo(({ message }: { message: ChatMessage }) => (
 ));
 
 // Initial chat placeholder component
-const InitialChatPlaceholder = ({ onFirstMessage }: { onFirstMessage: () => void }) => {
+const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: () => void; colors: any }) => {
   useEffect(() => {
-    // This will be called when the component unmounts (when first message is sent)
     return () => {
       onFirstMessage();
     };
@@ -101,11 +75,11 @@ const InitialChatPlaceholder = ({ onFirstMessage }: { onFirstMessage: () => void
       exiting={FadeOutDown.duration(300)}
       style={styles.placeholderContainer}
     >
-      <View style={styles.placeholderIcon}>
-        <Bot color="#10B981" size={48} />
+      <View style={[styles.placeholderIcon, { backgroundColor: colors.primary + '20' }]}>
+        <Bot color={colors.primary} size={48} />
       </View>
-      <Text style={styles.placeholderTitle}>Chat with SymSense AI</Text>
-      <Text style={styles.placeholderSubtitle}>
+      <Text style={[styles.placeholderTitle, { color: colors.text }]}>Chat with SymSense AI</Text>
+      <Text style={[styles.placeholderSubtitle, { color: colors.textSecondary }]}>
         Ask me about your health, medications, symptoms, or get personalized recommendations
       </Text>
     </Animated.View>
@@ -116,13 +90,14 @@ export default function AIScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
+  const [showNewChatButton, setShowNewChatButton] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const userProfile = useUserProfile();
   const medications = useMedications();
   const symptoms = useSymptoms();
   const foodLogs = useFoodLogs();
+  const colors = useThemeColors();
 
   useEffect(() => {
     scrollToBottom();
@@ -132,6 +107,13 @@ export default function AIScreen() {
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
+  };
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setShowPlaceholder(true);
+    setShowNewChatButton(false);
+    setInputText('');
   };
 
   const sendMessageToWebhook = async (message: string) => {
@@ -193,9 +175,10 @@ export default function AIScreen() {
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
 
-    // Hide placeholder on first message
+    // Hide placeholder and show new chat button on first message
     if (showPlaceholder) {
       setShowPlaceholder(false);
+      setShowNewChatButton(true);
     }
 
     const userMessage: ChatMessage = {
@@ -238,10 +221,10 @@ export default function AIScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       {/* Header */}
-      <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-        <Text style={styles.headerTitle}>SymSense AI</Text>
+      <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>SymSense AI</Text>
       </Animated.View>
 
       {/* Messages */}
@@ -257,10 +240,10 @@ export default function AIScreen() {
           showsVerticalScrollIndicator={false}
         >
           {showPlaceholder && messages.length === 0 ? (
-            <InitialChatPlaceholder onFirstMessage={() => {}} />
+            <InitialChatPlaceholder onFirstMessage={() => {}} colors={colors} />
           ) : (
             messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble key={message.id} message={message} colors={colors} />
             ))
           )}
           
@@ -270,25 +253,42 @@ export default function AIScreen() {
               style={[styles.messageBubble, styles.aiMessage]}
             >
               <View style={styles.messageHeader}>
-                <View style={[styles.messageIcon, { backgroundColor: '#000000' }]}>
+                <View style={[styles.messageIcon, { backgroundColor: colors.text }]}>
                   <Bot color="white" size={16} />
                 </View>
-                <Text style={styles.messageTime}>Now</Text>
+                <Text style={[styles.messageTime, { color: colors.textSecondary }]}>Now</Text>
               </View>
-              <View style={styles.loadingContainer}>
-                <Loader color="#6B7280" size={16} />
-                <Text style={styles.loadingText}>AI is thinking...</Text>
+              <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+                <Loader color={colors.textSecondary} size={16} />
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>AI is thinking...</Text>
               </View>
             </Animated.View>
           )}
         </ScrollView>
 
+        {/* New Chat Button */}
+        {showNewChatButton && (
+          <Animated.View 
+            entering={FadeInUp.duration(400)}
+            style={styles.newChatButtonContainer}
+          >
+            <TouchableOpacity
+              style={[styles.newChatButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={handleNewChat}
+            >
+              <Plus color={colors.text} size={16} />
+              <Text style={[styles.newChatButtonText, { color: colors.text }]}>New chat</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
         {/* Input */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <TextInput
-              style={styles.textInput}
-              placeholder="Ask me about your health..."
+              style={[styles.textInput, { color: colors.text }]}
+              placeholder="Message SymSense AI..."
+              placeholderTextColor={colors.textSecondary}
               value={inputText}
               onChangeText={setInputText}
               multiline
@@ -298,20 +298,20 @@ export default function AIScreen() {
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                (!inputText.trim() || isLoading) && styles.sendButtonDisabled
+                { backgroundColor: (!inputText.trim() || isLoading) ? colors.textSecondary : colors.primary }
               ]}
               onPress={sendMessage}
               disabled={!inputText.trim() || isLoading}
             >
-              <Send color="white" size={20} />
+              <Send color="white" size={18} />
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
 
       {/* Disclaimer */}
-      <View style={styles.disclaimer}>
-        <Text style={styles.disclaimerText}>
+      <View style={[styles.disclaimer, { backgroundColor: colors.warning + '20', borderTopColor: colors.warning }]}>
+        <Text style={[styles.disclaimerText, { color: colors.warning }]}>
           This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
         </Text>
       </View>
@@ -323,17 +323,17 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 60,
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'transparent',
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    color: 'black',
   },
   chatContainer: {
     flex: 1,
@@ -356,7 +356,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#ECFDF5',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -364,14 +363,12 @@ const styles = StyleSheet.create({
   placeholderTitle: {
     fontSize: 24,
     fontFamily: 'Poppins-Bold',
-    color: '#1F2937',
     marginBottom: 12,
     textAlign: 'center',
   },
   placeholderSubtitle: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -401,7 +398,6 @@ const styles = StyleSheet.create({
   messageTime: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
   },
   messageText: {
     fontSize: 16,
@@ -411,72 +407,77 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   userMessageText: {
-    backgroundColor: '#3B82F6',
     color: 'white',
   },
   aiMessageText: {
-    backgroundColor: 'white',
-    color: '#1F2937',
+    // Colors will be applied dynamically
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: 'white',
     borderRadius: 16,
   },
   loadingText: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
     marginLeft: 8,
+  },
+  newChatButtonContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  newChatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+  },
+  newChatButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
   },
   inputContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: 'white',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F3F4F6',
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    borderWidth: 1,
+    minHeight: 48,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1F2937',
     maxHeight: 100,
-    paddingVertical: 8,
+    paddingVertical: 0,
+    marginRight: 12,
   },
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#3B82F6',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#9CA3AF',
   },
   disclaimer: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#FEF3C7',
     borderTopWidth: 1,
-    borderTopColor: '#F59E0B',
   },
   disclaimerText: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    color: '#92400E',
     textAlign: 'center',
     lineHeight: 16,
   },

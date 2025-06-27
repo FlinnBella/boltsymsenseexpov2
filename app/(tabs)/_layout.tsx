@@ -44,7 +44,7 @@ export default function TabLayout() {
         <Drawer.Screen 
           name="stats" 
           options={{ 
-            title: 'Statistics',
+            title: 'Health Statistics',
             drawerIcon: () => <TrendingUp color="black" size={24} />
           }} 
         />
@@ -67,13 +67,6 @@ export default function TabLayout() {
           options={{ 
             title: 'Add Medication',
             drawerIcon: () => <Pill color="black" size={24} />
-          }} 
-        />
-        <Drawer.Screen 
-          name="health-metrics" 
-          options={{ 
-            title: 'Health Metrics',
-            drawerIcon: () => <Heart color="black" size={24} />
           }} 
         />
         <Drawer.Screen 

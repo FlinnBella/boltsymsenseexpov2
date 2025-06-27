@@ -10,7 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity, Moon, Sun, Chrome as Home, Camera } from 'lucide-react-native';
+import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity, Moon, Sun, House, Camera } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -338,7 +338,7 @@ export default function ProfileScreen() {
       <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
-            <Home color={colors.text} size={24} />
+            <House color={colors.text} size={24} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
           <View style={styles.placeholder} />

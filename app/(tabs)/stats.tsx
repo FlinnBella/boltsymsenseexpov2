@@ -18,7 +18,7 @@ import {
   Footprints,
   Flame,
   Bell,
-  Chrome as Home,
+  House,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
@@ -289,7 +289,7 @@ export default function StatsScreen() {
       <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
-            <Home color={colors.text} size={24} />
+            <House color={colors.text} size={24} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Health Statistics</Text>
           <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.background }]}>

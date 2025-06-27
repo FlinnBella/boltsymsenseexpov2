@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Chrome as Home, Save, CircleAlert as AlertCircle } from 'lucide-react-native';
+import { House, Save, CircleAlert as AlertCircle } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -79,7 +79,7 @@ export default function LogSymptomsScreen() {
       <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
-            <Home color={colors.text} size={24} />
+            <House color={colors.text} size={24} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Log Symptoms</Text>
           <View style={styles.placeholder} />
@@ -258,6 +258,8 @@ const styles = StyleSheet.create({
   severityGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 12,
   },
   severityButton: {

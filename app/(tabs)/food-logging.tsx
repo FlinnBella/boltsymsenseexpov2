@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Chrome as Home, Save, Search, Apple } from 'lucide-react-native';
+import { House, Save, Search, Apple } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -155,7 +155,7 @@ export default function FoodLoggingScreen() {
       <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
-            <Home color={colors.text} size={24} />
+            <House color={colors.text} size={24} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Food Log</Text>
           <View style={styles.placeholder} />

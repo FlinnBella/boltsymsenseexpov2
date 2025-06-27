@@ -1,9 +1,12 @@
 import { Drawer } from 'expo-router/drawer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, StyleSheet } from 'react-native';
-import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart } from 'lucide-react-native';
+import { MessageCircle, Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart } from 'lucide-react-native';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 export default function TabLayout() {
+  const colors = useThemeColors();
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
@@ -14,14 +17,14 @@ export default function TabLayout() {
             height: 100,
             elevation: 0,
             shadowOpacity: 0,
+            backgroundColor: colors.surface,
           },
-          headerTransparent: true,
-          headerBackground: () => <View style={styles.header} />,
-          headerTintColor: '#000000',
+          headerTransparent: false,
+          headerTintColor: colors.text,
           headerTitleStyle: {
             fontFamily: 'Poppins-Bold',
             fontSize: 18,
-            color: '#000000',
+            color: colors.text,
             textAlign: 'center',
             alignSelf: 'center',
             flex: 1,
@@ -30,7 +33,19 @@ export default function TabLayout() {
             right: 0,
           },
           drawerStyle: {
-            backgroundColor: 'white',
+            backgroundColor: colors.surface,
+          },
+          drawerContentStyle: {
+            backgroundColor: colors.surface,
+          },
+          drawerActiveTintColor: colors.primary,
+          drawerInactiveTintColor: colors.textSecondary,
+          drawerActiveBackgroundColor: colors.primary + '20',
+          drawerInactiveBackgroundColor: 'transparent',
+          drawerLabelStyle: {
+            fontFamily: 'Inter-Medium',
+            fontSize: 16,
+            color: colors.text,
           },
         }}
       >
@@ -38,42 +53,42 @@ export default function TabLayout() {
           name="index" 
           options={{ 
             title: 'SymSense Chat',
-            drawerIcon: () => <MessageCircle color="black" size={24} />
+            drawerIcon: ({ color }) => <MessageCircle color={color} size={24} />
           }} 
         />
         <Drawer.Screen 
           name="stats" 
           options={{ 
             title: 'Health Statistics',
-            drawerIcon: () => <TrendingUp color="black" size={24} />
+            drawerIcon: ({ color }) => <TrendingUp color={color} size={24} />
           }} 
         />
         <Drawer.Screen 
           name="profile" 
           options={{ 
             title: 'Profile',
-            drawerIcon: () => <User color="black" size={24} />
+            drawerIcon: ({ color }) => <User color={color} size={24} />
           }} 
         />
         <Drawer.Screen 
           name="symptomtracker" 
           options={{ 
             title: 'Log Symptoms',
-            drawerIcon: () => <AlertCircle color="black" size={24} />
+            drawerIcon: ({ color }) => <AlertCircle color={color} size={24} />
           }} 
         />
         <Drawer.Screen 
           name="add-medication" 
           options={{ 
             title: 'Add Medication',
-            drawerIcon: () => <Pill color="black" size={24} />
+            drawerIcon: ({ color }) => <Pill color={color} size={24} />
           }} 
         />
         <Drawer.Screen 
           name="food-logging" 
           options={{ 
             title: 'Food Log',
-            drawerIcon: () => <Apple color="black" size={24} />
+            drawerIcon: ({ color }) => <Apple color={color} size={24} />
           }} 
         />
       </Drawer>
@@ -87,3 +102,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+</Drawer.Screen>

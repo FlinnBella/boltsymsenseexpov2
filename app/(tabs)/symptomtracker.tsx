@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Save, CircleAlert as AlertCircle } from 'lucide-react-native';
+import { Home, Save, CircleAlert as AlertCircle } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -64,7 +64,7 @@ export default function LogSymptomsScreen() {
       }
 
       Alert.alert('Success', 'Symptom logged successfully', [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: () => router.push('/(tabs)/stats') }
       ]);
     } catch (error) {
       console.error('Error logging symptom:', error);
@@ -78,8 +78,8 @@ export default function LogSymptomsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.background }]}>
-            <ArrowLeft color={colors.text} size={24} />
+          <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
+            <Home color={colors.text} size={24} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Log Symptoms</Text>
           <View style={styles.placeholder} />
@@ -177,7 +177,6 @@ export default function LogSymptomsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 60,
     flex: 1,
   },
   header: {
@@ -190,7 +189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  backButton: {
+  homeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,

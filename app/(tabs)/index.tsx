@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Bot, User, Loader, Plus, RotateCcw } from 'lucide-react-native';
+import { Send, Bot, User, Loader, Plus } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
@@ -222,11 +222,6 @@ export default function AIScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
-      {/* Header */}
-      <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>SymSense AI</Text>
-      </Animated.View>
-
       {/* Messages */}
       <KeyboardAvoidingView
         style={styles.chatContainer}
@@ -282,9 +277,9 @@ export default function AIScreen() {
           </Animated.View>
         )}
 
-        {/* Input */}
-        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        {/* Input - DeepSeek Style */}
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.inputWrapper, { backgroundColor: colors.background }]}>
             <TextInput
               style={[styles.textInput, { color: colors.text }]}
               placeholder="Message SymSense AI..."
@@ -321,19 +316,7 @@ export default function AIScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 60,
     flex: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'transparent',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: 'Poppins-Bold',
   },
   chatContainer: {
     flex: 1,
@@ -442,18 +425,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
   },
   inputContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
-    borderTopWidth: 1,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    borderRadius: 24,
+    borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderWidth: 1,
-    minHeight: 48,
+    minHeight: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   textInput: {
     flex: 1,
@@ -462,6 +448,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     paddingVertical: 0,
     marginRight: 12,
+    lineHeight: 20,
   },
   sendButton: {
     width: 32,

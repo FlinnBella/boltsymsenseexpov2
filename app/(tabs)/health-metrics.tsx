@@ -178,7 +178,6 @@ export default function HealthMetricsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-        <LinearGradient colors={['#3B82F6', '#1E40AF']} style={styles.headerGradient}>
           <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <ArrowLeft color="white" size={24} />
@@ -186,7 +185,6 @@ export default function HealthMetricsScreen() {
             <Text style={styles.headerTitle}>Health Metrics</Text>
             <View style={styles.placeholder} />
           </View>
-        </LinearGradient>
       </Animated.View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -281,6 +279,7 @@ export default function HealthMetricsScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 60,
     flex: 1,
     backgroundColor: '#F9FAFB',
   },

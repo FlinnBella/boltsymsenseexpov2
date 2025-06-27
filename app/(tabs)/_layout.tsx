@@ -1,71 +1,67 @@
 import { Tabs } from 'expo-router';
-import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple } from 'lucide-react-native';
+import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart } from 'lucide-react-native';
+import { Drawer } from 'expo-router/drawer';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#1F2937',
-          borderTopColor: '#374151',
-          height: 80,
-          paddingBottom: 20,
-          paddingTop: 10,
-        },
-        tabBarActiveTintColor: '#F97316',
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: 'Inter-Medium',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ size, color }) => (
-            <Home size={size} color={color} />
-          ),
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        screenOptions={{
+          headerShown: true,
+          headerStyle: {
+            borderBottomWidth: 0,
+            height: 100, // Fixed header height
+            elevation: 0, // Remove shadow on Android
+            shadowOpacity: 0, // Remove shadow on iOS
+          },
+          headerTransparent: true,
+          headerBackground: () => <View style={styles.header} />,
+          headerTintColor: '#000000',
+          headerTitleStyle: {
+            fontFamily: 'Poppins-Bold',
+            fontSize: 18,
+            color: '#000000',
+            textAlign: 'center',
+            alignSelf: 'center',
+            flex: 1,
+            position: 'absolute',
+            left: 0,
+            right: 0,
+          },
+          drawerStyle: {
+            backgroundColor: 'white',
+          },
         }}
-      />
-      <Tabs.Screen
-        name="ai"
-        options={{
-          title: 'AI Assistant',
-          tabBarIcon: ({ size, color }) => (
-            <MessageCircle size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ size, color }) => (
-            <User size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="log-symptoms"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="add-medication"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="health-metrics"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-    </Tabs>
+      >
+        <Drawer.Screen name="index" options={{ title: 'SymSense Chat',
+          drawerIcon: () => <Home color="black" size={24} />
+         }} />
+        <Drawer.Screen name="stats" options={{ title: 'Statistics',
+          drawerIcon: () => <TrendingUp color="black" size={24} />
+         }} />
+        <Drawer.Screen name="profile" options={{ title: 'Profile',
+          drawerIcon: () => <User color="black" size={24} />
+         }} />
+        <Drawer.Screen name="symptomtracker" options={{ title: 'Log Symptoms',
+          drawerIcon: () => <Pill color="black" size={24} />
+         }} />
+        <Drawer.Screen name="add-medication" options={{ title: 'Add Medication',
+          drawerIcon: () => <Apple color="black" size={24} />
+         }} />
+        <Drawer.Screen name="health-metrics" options={{ title: 'Health Metrics',
+          drawerIcon: () => <Heart color="black" size={24} />
+         }} />
+      </Drawer>
+    </GestureHandlerRootView>
   );
 }
+  
+
+const styles = StyleSheet.create({
+  header: {
+    backgroundColor: 'transparent',
+    flex: 1,
+  },
+});

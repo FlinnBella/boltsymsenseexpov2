@@ -219,10 +219,9 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
         <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-          <LinearGradient colors={['#3B82F6', '#1E40AF']} style={styles.headerGradient}>
             <View style={styles.profileHeader}>
               <View style={styles.avatar}>
-                <User color="white" size={32} />
+                <User color="black" size={32} />
               </View>
               <View style={styles.profileInfo}>
                 <Text style={styles.profileName}>
@@ -237,7 +236,6 @@ export default function ProfileScreen() {
                 <Edit color="white" size={20} />
               </TouchableOpacity>
             </View>
-          </LinearGradient>
         </Animated.View>
 
         
@@ -395,6 +393,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 60,
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
@@ -438,19 +437,19 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    color: 'white',
+    color: 'black',
     marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(0, 0, 0, 0.8)',
   },
   editButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },

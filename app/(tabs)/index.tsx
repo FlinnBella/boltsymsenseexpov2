@@ -11,10 +11,12 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Dog, User, Loader, Plus } from 'lucide-react-native';
+import { Send, Dog, User, Loader, Plus, Video } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
+import TavusVideoChat from '@/components/TavisConv';
+import PremiumUpgradeModal from '@/components/Modal/PremiumUpgradeModal';
 
 // Webhook URL for AI communication
 const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
@@ -62,7 +64,11 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
 ));
 
 // Initial chat placeholder component
-const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: () => void; colors: any }) => {
+const InitialChatPlaceholder = ({ onFirstMessage, colors, onStartVideoCall }: { 
+  onFirstMessage: () => void; 
+  colors: any;
+  onStartVideoCall: () => void;
+}) => {
   useEffect(() => {
     return () => {
       onFirstMessage();
@@ -82,6 +88,15 @@ const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: ()
       <Text style={[styles.placeholderSubtitle, { color: colors.textSecondary }]}>
         Ask me about your health, medications, symptoms, or get personalized recommendations
       </Text>
+      
+      {/* Video Call Button */}
+      <TouchableOpacity
+        style={[styles.videoCallButton, { backgroundColor: colors.primary }]}
+        onPress={onStartVideoCall}
+      >
+        <Video color="white" size={20} />
+        <Text style={styles.videoCallButtonText}>Start Video Call with Anna</Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -92,6 +107,8 @@ export default function AIScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
   const [showNewChatButton, setShowNewChatButton] = useState(false);
+  const [showVideoChat, setShowVideoChat] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const userProfile = useUserProfile();
   const medications = useMedications();
@@ -114,6 +131,21 @@ export default function AIScreen() {
     setShowPlaceholder(true);
     setShowNewChatButton(false);
     setInputText('');
+  };
+
+  const handleStartVideoCall = () => {
+    // For demo purposes, show premium modal
+    // In production, you'd check if user has premium access
+    setShowPremiumModal(true);
+  };
+
+  const handleVideoCallStart = () => {
+    setShowVideoChat(true);
+    setShowPlaceholder(false);
+  };
+
+  const handleVideoCallEnd = () => {
+    setShowVideoChat(false);
   };
 
   const sendMessageToWebhook = async (message: string) => {
@@ -220,6 +252,18 @@ export default function AIScreen() {
     }
   };
 
+  if (showVideoChat) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
+        <TavusVideoChat
+          onClose={handleVideoCallEnd}
+          conversationalContext="You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance."
+          customGreeting="Hello! I'm Anna, your nurse assistant. How can I help you today?"
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       {/* Messages */}
@@ -235,7 +279,11 @@ export default function AIScreen() {
           showsVerticalScrollIndicator={false}
         >
           {showPlaceholder && messages.length === 0 ? (
-            <InitialChatPlaceholder onFirstMessage={() => {}} colors={colors} />
+            <InitialChatPlaceholder 
+              onFirstMessage={() => {}} 
+              colors={colors} 
+              onStartVideoCall={handleStartVideoCall}
+            />
           ) : (
             messages.map((message) => (
               <MessageBubble key={message.id} message={message} colors={colors} />
@@ -310,6 +358,13 @@ export default function AIScreen() {
           This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
         </Text>
       </View>
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        visible={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        onUpgradeSuccess={handleVideoCallStart}
+      />
     </SafeAreaView>
   );
 }
@@ -354,6 +409,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
     lineHeight: 24,
+    marginBottom: 32,
+  },
+  videoCallButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 12,
+  },
+  videoCallButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
   },
   messageBubble: {
     marginBottom: 16,

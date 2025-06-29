@@ -10,16 +10,18 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity, Moon, Sun, House, Camera } from 'lucide-react-native';
+import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity, Moon, Sun, House, Camera, Crown, Star } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 
 import { supabase } from '@/lib/supabase';
 import ProfileEditModal from '@/components/Modal/ProfileEditModal';
+import PremiumUpgradeModal from '@/components/Modal/PremiumUpgradeModal';
 import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUserStore, useUserProfile, useUserPreferences, useIsLoadingProfile, useIsLoadingPreferences, useHealthData } from '@/stores/useUserStore';
+import { useSubscriptionStore, useSubscription, useIsPremium } from '@/stores/useSubscriptionStore';
 import { useThemeStore, useIsDarkMode, useThemeColors } from '@/stores/useThemeStore';
 import { getUserProfile, getPatientProfile, PatientProfile } from '@/lib/api/profile';
 
@@ -28,9 +30,12 @@ export default function ProfileScreen() {
   const userProfile = useUserProfile();
   const healthData = useHealthData();
   const preferences = useUserPreferences();
+  const subscription = useSubscription();
+  const isPremium = useIsPremium();
   const isLoadingProfile = useIsLoadingProfile();
   const isLoadingPreferences = useIsLoadingPreferences();
   const { updatePreferences, signOut, fetchUserProfile, updateUserProfile } = useUserStore();
+  const { checkSubscription, cancelSubscription } = useSubscriptionStore();
   
   // Theme store
   const { toggleTheme } = useThemeStore();
@@ -39,6 +44,7 @@ export default function ProfileScreen() {
   
   const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [connectedDevices, setConnectedDevices] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [showWearableConnectionModal, setShowWearableConnectionModal] = useState(false);
@@ -48,6 +54,7 @@ export default function ProfileScreen() {
     loadPatientData();
     loadConnectedDevices();
     loadProfileImage();
+    loadSubscriptionData();
   }, [userProfile]);
 
   const loadPatientData = async () => {
@@ -58,6 +65,15 @@ export default function ProfileScreen() {
       setPatientProfile(patientData);
     } catch (error) {
       console.error('Error loading patient data:', error);
+    }
+  };
+
+  const loadSubscriptionData = async () => {
+    try {
+      if (!userProfile) return;
+      await checkSubscription(userProfile.id);
+    } catch (error) {
+      console.error('Error loading subscription data:', error);
     }
   };
 
@@ -262,6 +278,35 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleCancelSubscription = async () => {
+    if (!userProfile) return;
+
+    Alert.alert(
+      'Cancel Premium Subscription',
+      'Are you sure you want to cancel your premium subscription? You will lose access to premium features.',
+      [
+        { text: 'Keep Premium', style: 'cancel' },
+        {
+          text: 'Cancel Subscription',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await cancelSubscription(userProfile.id);
+              if (result.success) {
+                Alert.alert('Success', 'Your premium subscription has been canceled.');
+              } else {
+                Alert.alert('Error', result.error || 'Failed to cancel subscription.');
+              }
+            } catch (error) {
+              console.error('Error canceling subscription:', error);
+              Alert.alert('Error', 'Failed to cancel subscription. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSignOut = async () => {
     Alert.alert(
       'Sign Out',
@@ -362,9 +407,17 @@ export default function ProfileScreen() {
                 </View>
               </TouchableOpacity>
               <View style={styles.profileInfo}>
-                <Text style={[styles.profileName, { color: colors.text }]}>
-                  {userProfile.first_name} {userProfile.last_name}
-                </Text>
+                <View style={styles.nameContainer}>
+                  <Text style={[styles.profileName, { color: colors.text }]}>
+                    {userProfile.first_name} {userProfile.last_name}
+                  </Text>
+                  {isPremium && (
+                    <View style={[styles.premiumBadge, { backgroundColor: '#FFD700' }]}>
+                      <Crown color="white" size={12} />
+                      <Text style={styles.premiumBadgeText}>Premium</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{userProfile.email}</Text>
               </View>
               <TouchableOpacity 
@@ -376,6 +429,44 @@ export default function ProfileScreen() {
             </View>
         </Animated.View>
 
+        {/* Premium Section */}
+        <Animated.View entering={FadeInUp.delay(100).duration(600)}>
+          <ProfileSection title="Subscription">
+            {isPremium ? (
+              <>
+                <ProfileItem
+                  icon={Crown}
+                  title="Premium Active"
+                  subtitle={`${subscription.plan === 'premium_yearly' ? 'Yearly' : 'Monthly'} plan • ${subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString() : 'Active'}`}
+                  rightElement={
+                    <View style={[styles.statusBadge, { backgroundColor: '#10B981' }]}>
+                      <Text style={styles.statusBadgeText}>Active</Text>
+                    </View>
+                  }
+                />
+                <ProfileItem
+                  icon={Settings}
+                  title="Manage Subscription"
+                  subtitle="Cancel or modify your subscription"
+                  onPress={handleCancelSubscription}
+                />
+              </>
+            ) : (
+              <ProfileItem
+                icon={Star}
+                title="Upgrade to Premium"
+                subtitle="Unlock unlimited AI consultations and video calls"
+                onPress={() => setShowPremiumModal(true)}
+                rightElement={
+                  <View style={[styles.upgradeButton, { backgroundColor: '#FFD700' }]}>
+                    <Crown color="white" size={16} />
+                    <Text style={styles.upgradeButtonText}>Upgrade</Text>
+                  </View>
+                }
+              />
+            )}
+          </ProfileSection>
+        </Animated.View>
         
         <Animated.View entering={FadeInUp.delay(200).duration(600)}>
           <ProfileSection title="Health Goals">
@@ -537,6 +628,17 @@ export default function ProfileScreen() {
         patientProfile={patientProfile}
         onSave={fetchUserProfile}
       />
+
+      <PremiumUpgradeModal
+        visible={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        onUpgradeSuccess={() => {
+          // Refresh subscription status after successful upgrade
+          if (userProfile) {
+            checkSubscription(userProfile.id);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -620,10 +722,28 @@ const styles = StyleSheet.create({
   profileInfo: {
     flex: 1,
   },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   profileName: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    marginBottom: 4,
+    marginRight: 8,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
   },
   profileEmail: {
     fontSize: 14,
@@ -678,6 +798,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  upgradeButtonText: {
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
   },
   disclaimer: {
     margin: 20,

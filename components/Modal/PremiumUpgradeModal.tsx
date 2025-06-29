@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Crown, Check, Star, Zap, Shield } from 'lucide-react-native';
-import { PREMIUM_PLANS, formatPrice, createStripeCustomer, createSubscription } from '@/lib/stripe';
+import { PREMIUM_PLANS, formatPrice } from '@/lib/stripe';
 import { useUserProfile } from '@/stores/useUserStore';
+import { useSubscriptionStore } from '@/stores/useSubscriptionStore';
 
 interface PremiumUpgradeModalProps {
   visible: boolean;
@@ -26,50 +27,49 @@ export default function PremiumUpgradeModal({
   onUpgradeSuccess 
 }: PremiumUpgradeModalProps) {
   const userProfile = useUserProfile();
+  const { upgradeToPremiun, isLoading } = useSubscriptionStore();
   const [selectedPlan, setSelectedPlan] = useState(PREMIUM_PLANS[0]);
-  const [loading, setLoading] = useState(false);
 
   const handleUpgrade = async () => {
-    if (!userProfile?.email) {
+    if (!userProfile?.email || !userProfile?.id) {
       Alert.alert('Error', 'Please log in to upgrade to premium');
       return;
     }
 
-    setLoading(true);
     try {
-      // Create Stripe customer
-      const customer = await createStripeCustomer(
+      const result = await upgradeToPremiun(
+        userProfile.id,
         userProfile.email,
-        `${userProfile.first_name} ${userProfile.last_name}`
+        `${userProfile.first_name} ${userProfile.last_name}`,
+        selectedPlan.id
       );
 
-      // Create subscription
-      const subscription = await createSubscription(
-        customer.id,
-        selectedPlan.stripePriceId
-      );
-
-      Alert.alert(
-        'Upgrade Successful!',
-        'Welcome to SymSense Premium! You now have access to all premium features.',
-        [
-          {
-            text: 'Continue',
-            onPress: () => {
-              onUpgradeSuccess?.();
-              onClose();
+      if (result.success) {
+        Alert.alert(
+          'Upgrade Successful!',
+          'Welcome to SymSense Premium! You now have access to all premium features.',
+          [
+            {
+              text: 'Continue',
+              onPress: () => {
+                onUpgradeSuccess?.();
+                onClose();
+              }
             }
-          }
-        ]
-      );
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Upgrade Failed',
+          result.error || 'There was an issue processing your upgrade. Please try again or contact support.'
+        );
+      }
     } catch (error) {
       console.error('Upgrade error:', error);
       Alert.alert(
         'Upgrade Failed',
         'There was an issue processing your upgrade. Please try again or contact support.'
       );
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -178,15 +178,15 @@ export default function PremiumUpgradeModal({
             {/* Upgrade Button */}
             <View style={styles.upgradeContainer}>
               <TouchableOpacity
-                style={[styles.upgradeButton, loading && styles.upgradeButtonDisabled]}
+                style={[styles.upgradeButton, isLoading && styles.upgradeButtonDisabled]}
                 onPress={handleUpgrade}
-                disabled={loading}
+                disabled={isLoading}
               >
                 <LinearGradient
                   colors={['#FFD700', '#FFA500']}
                   style={styles.upgradeButtonGradient}
                 >
-                  {loading ? (
+                  {isLoading ? (
                     <ActivityIndicator color="white" size="small" />
                   ) : (
                     <>

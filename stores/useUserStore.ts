@@ -48,6 +48,13 @@ export interface UserProfile {
   email_verified_at?: string;
   created_at?: string;
   updated_at?: string;
+  // Subscription fields
+  stripe_customer_id?: string;
+  subscription_status?: string;
+  subscription_id?: string;
+  subscription_plan?: string;
+  subscription_expires_at?: string;
+  subscription_created_at?: string;
 }
 
 export interface HealthData {

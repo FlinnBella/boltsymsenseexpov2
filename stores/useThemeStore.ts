@@ -35,7 +35,7 @@ export const darkTheme: ThemeColors = {
   secondary: '#10B981',
   text: '#FFFFFF',
   textSecondary: '#9CA3AF',
-  border: '#374151',
+  border: '#6B7280',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',

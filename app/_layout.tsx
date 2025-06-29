@@ -18,6 +18,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { initializeOAuth } from '@/lib/oauth';
 import AuthGuard from '@/components/AuthGuard';
 
 SplashScreen.preventAutoHideAsync();
@@ -44,6 +45,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     registerForPushNotificationsAsync();
+    initializeOAuth();
   }, []);
 
   if (!fontsLoaded && !fontError) {

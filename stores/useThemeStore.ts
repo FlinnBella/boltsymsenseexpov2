@@ -17,8 +17,8 @@ export interface ThemeColors {
 
 export const lightTheme: ThemeColors = {
   background: '#FFFFFF',
-  surface: '#F9FAFB',
-  primary: '#064E3B', // Dark jade green
+  surface: '#FAFAFA', // Salt white
+  primary: '#064E3B', // Current jade green
   secondary: '#10B981',
   text: '#1F2937',
   textSecondary: '#6B7280',
@@ -29,9 +29,9 @@ export const lightTheme: ThemeColors = {
 };
 
 export const darkTheme: ThemeColors = {
-  background: '#111111',
-  surface: '#000000',
-  primary: '#064E3B', // Dark jade green
+  background: '#1A1A1A', // Dark gray instead of pure black
+  surface: '#2D2D2D', // Slightly lighter dark gray
+  primary: '#064E3B', // Same jade green
   secondary: '#10B981',
   text: '#FFFFFF',
   textSecondary: '#9CA3AF',

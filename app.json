@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "symsense",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -17,10 +17,10 @@
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "iossym"
+      "bundleIdentifier": "com.symsense.app"
     },
     "android": {
-      "package": "com.boltsymsenseexpov2.app",
+      "package": "com.symsense.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
@@ -55,6 +55,25 @@
           "enableCamera": true,
           "enableMicrophone": true,
           "enableScreenShare": true
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.symsense.app"
+        }
+      ],
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "YOUR_FACEBOOK_APP_ID",
+          "clientToken": "YOUR_FACEBOOK_CLIENT_TOKEN",
+          "displayName": "SymSense",
+          "scheme": "fb{YOUR_FACEBOOK_APP_ID}",
+          "advertiserIDCollectionEnabled": false,
+          "autoLogAppEventsEnabled": false,
+          "isAutoInitEnabled": true,
+          "iosUserTrackingPermission": "This identifier will be used to deliver personalized ads to you."
         }
       ]
     ],

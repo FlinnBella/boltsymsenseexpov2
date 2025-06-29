@@ -458,8 +458,16 @@ export const useUserStore = create<UserStore>()(
       signOut: async () => {
         try {
           await supabase.auth.signOut();
-          await GoogleSignin.signOut();
-          await LoginManager.logOut();
+          try {
+            await GoogleSignin.signOut();
+          } catch (googleError) {
+            console.log('Google sign out error (expected if not signed in):', googleError);
+          }
+          try {
+            await LoginManager.logOut();
+          } catch (facebookError) {
+            console.log('Facebook sign out error (expected if not signed in):', facebookError);
+          }
         } catch (error) {
           console.error('Error signing out from providers:', error);
         } finally {

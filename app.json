@@ -67,7 +67,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.symsense.app"
+          "iosUrlScheme": "com.googleusercontent.apps.com.symsense.app"
         }
       ],
       [

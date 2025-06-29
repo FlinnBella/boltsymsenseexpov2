@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "bolt-expo-nativewind",
-    "slug": "bolt-expo-nativewind",
+    "name": "SymSense",
+    "slug": "symsense-health-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,18 +12,24 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
-          "voip",
           "voip"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "google-signin",
+            "CFBundleURLSchemes": ["com.symsense.app"]
+          }
+        ]
       },
-      "bundleIdentifier": "com.symsense.app"
+      "bundleIdentifier": "com.symsense.app",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "com.symsense.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#064E3B"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -38,7 +44,8 @@
         "android.permission.FOREGROUND_SERVICE_CAMERA",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -69,7 +76,7 @@
           "appID": "YOUR_FACEBOOK_APP_ID",
           "clientToken": "YOUR_FACEBOOK_CLIENT_TOKEN",
           "displayName": "SymSense",
-          "scheme": "fb{YOUR_FACEBOOK_APP_ID}",
+          "scheme": "fbYOUR_FACEBOOK_APP_ID",
           "advertiserIDCollectionEnabled": false,
           "autoLogAppEventsEnabled": false,
           "isAutoInitEnabled": true,

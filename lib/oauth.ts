@@ -1,89 +1,154 @@
 import { Platform } from 'react-native';
+import { Alert } from 'react-native';
 
-// Platform-specific imports with error handling
+// Import native modules with proper error handling
 let GoogleSignin: any = null;
 let Settings: any = null;
 
-try {
-  if (Platform.OS !== 'web') {
-    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
-    Settings = require('react-native-fbsdk-next').Settings;
+// Only import on native platforms
+if (Platform.OS !== 'web') {
+  try {
+    const googleModule = require('@react-native-google-signin/google-signin');
+    const facebookModule = require('react-native-fbsdk-next');
+    
+    GoogleSignin = googleModule.GoogleSignin;
+    Settings = facebookModule.Settings;
+    
+    console.log('✅ OAuth native modules loaded successfully');
+  } catch (error) {
+    console.error('❌ Failed to load OAuth native modules:', error);
+    console.log('📱 Make sure you have run "expo prebuild" and built the native app');
   }
-} catch (error) {
-  console.warn('OAuth native modules not available:', error);
 }
 
-// Configure Google Sign-In
-export const configureGoogleSignIn = () => {
-  if (Platform.OS === 'web' || !GoogleSignin) {
-    console.log('Google Sign-In not available on web platform');
-    return;
+// Configure Google Sign-In for native platforms only
+export const configureGoogleSignIn = async () => {
+  if (Platform.OS === 'web') {
+    console.log('🌐 Google Sign-In not configured for web platform');
+    return false;
+  }
+
+  if (!GoogleSignin) {
+    console.error('❌ Google Sign-In module not available. Run "expo prebuild" and rebuild the app.');
+    return false;
   }
 
   try {
-    GoogleSignin.configure({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
-      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID;
+    
+    if (!webClientId) {
+      console.error('❌ EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID not found in environment variables');
+      return false;
+    }
+
+    await GoogleSignin.configure({
+      webClientId: webClientId,
       offlineAccess: true,
       hostedDomain: '',
       forceCodeForRefreshToken: true,
+      accountName: '',
+      iosClientId: webClientId, // Use same client ID for iOS
+      googleServicePlistPath: '', // Path to GoogleService-Info.plist
     });
-    console.log('Google Sign-In configured successfully');
+    
+    console.log('✅ Google Sign-In configured successfully');
+    return true;
   } catch (error) {
-    console.error('Error configuring Google Sign-In:', error);
+    console.error('❌ Error configuring Google Sign-In:', error);
+    return false;
   }
 };
 
-// Configure Facebook SDK
+// Configure Facebook SDK for native platforms only
 export const configureFacebookSDK = () => {
-  if (Platform.OS === 'web' || !Settings) {
-    console.log('Facebook SDK not available on web platform');
-    return;
+  if (Platform.OS === 'web') {
+    console.log('🌐 Facebook SDK not configured for web platform');
+    return false;
+  }
+
+  if (!Settings) {
+    console.error('❌ Facebook SDK module not available. Run "expo prebuild" and rebuild the app.');
+    return false;
   }
 
   try {
-    Settings.setAppID(process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '');
+    const appId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
+    
+    if (!appId) {
+      console.error('❌ EXPO_PUBLIC_FACEBOOK_APP_ID not found in environment variables');
+      return false;
+    }
+
+    Settings.setAppID(appId);
     Settings.initializeSDK();
-    console.log('Facebook SDK configured successfully');
+    
+    console.log('✅ Facebook SDK configured successfully');
+    return true;
   } catch (error) {
-    console.error('Error configuring Facebook SDK:', error);
+    console.error('❌ Error configuring Facebook SDK:', error);
+    return false;
   }
 };
 
 // Initialize OAuth providers
-export const initializeOAuth = () => {
+export const initializeOAuth = async () => {
+  if (Platform.OS === 'web') {
+    console.log('🌐 OAuth initialization skipped for web platform');
+    return;
+  }
+
+  console.log('📱 Initializing OAuth providers for native platform...');
+  
   try {
-    configureGoogleSignIn();
-    configureFacebookSDK();
-    console.log('OAuth providers initialization completed');
+    const googleConfigured = await configureGoogleSignIn();
+    const facebookConfigured = configureFacebookSDK();
+    
+    if (!googleConfigured && !facebookConfigured) {
+      console.warn('⚠️ No OAuth providers configured successfully');
+      console.log('💡 To fix this:');
+      console.log('1. Run "expo prebuild --clean"');
+      console.log('2. Build the app with "expo run:ios" or "expo run:android"');
+      console.log('3. Make sure Google Services files are in place');
+    } else {
+      console.log('✅ OAuth providers initialization completed');
+    }
   } catch (error) {
-    console.error('Error initializing OAuth providers:', error);
+    console.error('❌ Error initializing OAuth providers:', error);
   }
 };
 
-// Web-compatible Google Sign-In
-export const signInWithGoogleWeb = async () => {
-  if (Platform.OS !== 'web') {
-    throw new Error('This method is only for web platform');
-  }
-
-  // For web, we would typically use Google's JavaScript SDK
-  // This is a placeholder for web implementation
-  throw new Error('Google Sign-In on web requires additional setup. Please use email/password for now.');
-};
-
-// Web-compatible Facebook Sign-In
-export const signInWithFacebookWeb = async () => {
-  if (Platform.OS !== 'web') {
-    throw new Error('This method is only for web platform');
-  }
-
-  // For web, we would typically use Facebook's JavaScript SDK
-  // This is a placeholder for web implementation
-  throw new Error('Facebook Sign-In on web requires additional setup. Please use email/password for now.');
-};
-
-// Check if OAuth is available
-export const isOAuthAvailable = () => {
+// Check if native OAuth is available
+export const isNativeOAuthAvailable = () => {
   return Platform.OS !== 'web' && GoogleSignin && Settings;
+};
+
+// Check if Google Sign-In is properly configured
+export const isGoogleSignInAvailable = async () => {
+  if (Platform.OS === 'web' || !GoogleSignin) {
+    return false;
+  }
+
+  try {
+    // Check if Google Play Services are available (Android)
+    if (Platform.OS === 'android') {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    }
+    return true;
+  } catch (error) {
+    console.error('Google Play Services not available:', error);
+    return false;
+  }
+};
+
+// Show helpful error message for OAuth setup
+export const showOAuthSetupError = (provider: 'google' | 'facebook') => {
+  const providerName = provider === 'google' ? 'Google' : 'Facebook';
+  
+  Alert.alert(
+    `${providerName} Sign-In Not Available`,
+    `${providerName} Sign-In requires a native build. Please use email/password authentication or contact support.`,
+    [
+      { text: 'OK', style: 'default' }
+    ]
+  );
 };

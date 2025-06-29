@@ -3,8 +3,26 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { MedicationLog, SymptomLog, FoodLog } from '@/lib/api/healthTracking';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
+import { Platform, Alert } from 'react-native';
+import { isNativeOAuthAvailable, isGoogleSignInAvailable, showOAuthSetupError } from '@/lib/oauth';
+
+// Platform-specific imports with error handling
+let GoogleSignin: any = null;
+let LoginManager: any = null;
+let AccessToken: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const googleModule = require('@react-native-google-signin/google-signin');
+    const facebookModule = require('react-native-fbsdk-next');
+    
+    GoogleSignin = googleModule.GoogleSignin;
+    LoginManager = facebookModule.LoginManager;
+    AccessToken = facebookModule.AccessToken;
+  } catch (error) {
+    console.warn('OAuth native modules not available:', error);
+  }
+}
 
 // Types for the user store
 export interface UserProfile {
@@ -363,7 +381,21 @@ export const useUserStore = create<UserStore>()(
         set((state) => ({ auth: { ...state.auth, isLoading: true } }));
         
         try {
-          await GoogleSignin.hasPlayServices();
+          // Check if we're on web or if native modules are not available
+          if (Platform.OS === 'web' || !GoogleSignin) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            showOAuthSetupError('google');
+            return { data: null, error: { message: 'Google Sign-In requires a native build' } };
+          }
+
+          // Check if Google Sign-In is properly configured
+          const isAvailable = await isGoogleSignInAvailable();
+          if (!isAvailable) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            return { data: null, error: { message: 'Google Play Services not available' } };
+          }
+
+          // Perform Google Sign-In
           const userInfo = await GoogleSignin.signIn();
           
           if (userInfo.data?.idToken) {
@@ -397,10 +429,20 @@ export const useUserStore = create<UserStore>()(
           }
 
           throw new Error('No ID token received from Google');
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error signing in with Google:', error);
           set((state) => ({ auth: { ...state.auth, isLoading: false } }));
-          return { data: null, error: { message: error.message } };
+          
+          // Handle specific Google Sign-In errors
+          if (error.code === 'SIGN_IN_CANCELLED') {
+            return { data: null, error: { message: 'Sign-in was cancelled' } };
+          } else if (error.code === 'IN_PROGRESS') {
+            return { data: null, error: { message: 'Sign-in already in progress' } };
+          } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+            return { data: null, error: { message: 'Google Play Services not available' } };
+          }
+          
+          return { data: null, error: { message: error.message || 'Google Sign-In failed' } };
         }
       },
 
@@ -408,6 +450,13 @@ export const useUserStore = create<UserStore>()(
         set((state) => ({ auth: { ...state.auth, isLoading: true } }));
         
         try {
+          // Check if we're on web or if native modules are not available
+          if (Platform.OS === 'web' || !LoginManager || !AccessToken) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            showOAuthSetupError('facebook');
+            return { data: null, error: { message: 'Facebook Sign-In requires a native build' } };
+          }
+
           const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
           
           if (result.isCancelled) {
@@ -448,25 +497,34 @@ export const useUserStore = create<UserStore>()(
           }
 
           throw new Error('No access token received from Facebook');
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error signing in with Facebook:', error);
           set((state) => ({ auth: { ...state.auth, isLoading: false } }));
-          return { data: null, error: { message: error.message } };
+          return { data: null, error: { message: error.message || 'Facebook Sign-In failed' } };
         }
       },
 
       signOut: async () => {
         try {
           await supabase.auth.signOut();
-          try {
-            await GoogleSignin.signOut();
-          } catch (googleError) {
-            console.log('Google sign out error (expected if not signed in):', googleError);
-          }
-          try {
-            await LoginManager.logOut();
-          } catch (facebookError) {
-            console.log('Facebook sign out error (expected if not signed in):', facebookError);
+          
+          // Sign out from OAuth providers if available
+          if (Platform.OS !== 'web') {
+            try {
+              if (GoogleSignin) {
+                await GoogleSignin.signOut();
+              }
+            } catch (googleError) {
+              console.log('Google sign out error (expected if not signed in):', googleError);
+            }
+            
+            try {
+              if (LoginManager) {
+                await LoginManager.logOut();
+              }
+            } catch (facebookError) {
+              console.log('Facebook sign out error (expected if not signed in):', facebookError);
+            }
           }
         } catch (error) {
           console.error('Error signing out from providers:', error);

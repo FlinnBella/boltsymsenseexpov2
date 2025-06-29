@@ -500,19 +500,19 @@ export default function SignupScreen() {
 
         <View style={styles.socialContainer}>
           <TouchableOpacity 
-            style={[styles.socialButton, styles.googleButton]} 
+            style={styles.socialButton} 
             onPress={handleGoogleSignUp}
             disabled={loading}
           >
-            <Text style={styles.socialButtonText}>Google</Text>
+            <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.socialButton, styles.facebookButton]} 
+            style={styles.socialButton} 
             onPress={handleFacebookSignUp}
             disabled={loading}
           >
-            <Text style={styles.socialButtonText}>Facebook</Text>
+            <Text style={styles.socialButtonText}>Continue with Facebook</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -792,27 +792,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   socialContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 12,
   },
   socialButton: {
-    flex: 1,
+    backgroundColor: 'white',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    flexDirection: 'row',
-  },
-  googleButton: {
-    backgroundColor: '#4285F4',
-  },
-  facebookButton: {
-    backgroundColor: '#1877F2',
+    borderWidth: 2,
+    borderColor: '#000000',
   },
   socialButtonText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: 'white',
+    color: '#000000',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -820,11 +815,13 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   button: {
-    backgroundColor: '#F97316',
+    backgroundColor: 'white',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#000000',
   },
   buttonFull: {
     flex: 1,
@@ -838,7 +835,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: 'white',
+    color: '#000000',
   },
   backButtonSecondary: {
     flex: 1,

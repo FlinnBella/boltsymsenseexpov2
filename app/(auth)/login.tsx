@@ -116,19 +116,19 @@ export default function LoginScreen() {
 
             <View style={styles.socialContainer}>
               <TouchableOpacity 
-                style={[styles.socialButton, styles.googleButton]} 
+                style={styles.socialButton} 
                 onPress={handleGoogleSignIn}
                 disabled={loading}
               >
-                <Text style={styles.socialButtonText}>Google</Text>
+                <Text style={styles.socialButtonText}>Continue with Google</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.socialButton, styles.facebookButton]} 
+                style={styles.socialButton} 
                 onPress={handleFacebookSignIn}
                 disabled={loading}
               >
-                <Text style={styles.socialButtonText}>Facebook</Text>
+                <Text style={styles.socialButtonText}>Continue with Facebook</Text>
               </TouchableOpacity>
             </View>
 
@@ -201,12 +201,14 @@ const styles = StyleSheet.create({
     right: 16,
   },
   button: {
-    backgroundColor: '#F97316',
+    backgroundColor: 'white',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
+    borderWidth: 2,
+    borderColor: '#000000',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: 'white',
+    color: '#000000',
   },
   divider: {
     flexDirection: 'row',
@@ -233,27 +235,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   socialContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 12,
   },
   socialButton: {
-    flex: 1,
+    backgroundColor: 'white',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    flexDirection: 'row',
-  },
-  googleButton: {
-    backgroundColor: '#4285F4',
-  },
-  facebookButton: {
-    backgroundColor: '#1877F2',
+    borderWidth: 2,
+    borderColor: '#000000',
   },
   socialButtonText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: 'white',
+    color: '#000000',
   },
   linkButton: {
     alignItems: 'center',

@@ -27,7 +27,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const { setAuth, setUserProfile, initializeUserData } = useUserStore();
 
   async function signIn(email: string, password: string) {
-    return supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (result.data.session) {
+      // Store session data in AsyncStorage
+      await AsyncStorage.setItem('authToken', result.data.session.access_token);
+      await AsyncStorage.setItem('userSession', JSON.stringify({
+        userId: result.data.user?.id,
+        email: result.data.user?.email,
+        accessToken: result.data.session.access_token,
+        refreshToken: result.data.session.refresh_token,
+      }));
+    }
+    
+    return result;
   }
 
   async function signInWithGoogle() {
@@ -47,8 +60,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
 
         if (authData.user && authData.session) {
-          // Store auth token
+          // Store auth token in AsyncStorage
           await AsyncStorage.setItem('authToken', authData.session.access_token);
+          await AsyncStorage.setItem('userSession', JSON.stringify({
+            userId: authData.user.id,
+            email: authData.user.email,
+            accessToken: authData.session.access_token,
+            refreshToken: authData.session.refresh_token,
+            provider: 'google',
+          }));
           
           // Check if user exists in our users table
           const { data: existingUser, error: userError } = await supabase
@@ -64,9 +84,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
               .insert({
                 id: authData.user.id,
                 email: authData.user.email,
-                first_name: authData.user.user_metadata?.given_name || '',
-                last_name: authData.user.user_metadata?.family_name || '',
-                profile_image_url: authData.user.user_metadata?.avatar_url,
+                first_name: authData.user.user_metadata?.given_name || authData.user.user_metadata?.name?.split(' ')[0] || '',
+                last_name: authData.user.user_metadata?.family_name || authData.user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+                profile_image_url: authData.user.user_metadata?.avatar_url || authData.user.user_metadata?.picture,
               });
 
             if (insertError) {
@@ -112,8 +132,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
 
         if (authData.user && authData.session) {
-          // Store auth token
+          // Store auth token in AsyncStorage
           await AsyncStorage.setItem('authToken', authData.session.access_token);
+          await AsyncStorage.setItem('userSession', JSON.stringify({
+            userId: authData.user.id,
+            email: authData.user.email,
+            accessToken: authData.session.access_token,
+            refreshToken: authData.session.refresh_token,
+            provider: 'facebook',
+          }));
           
           // Check if user exists in our users table
           const { data: existingUser, error: userError } = await supabase
@@ -129,8 +156,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
               .insert({
                 id: authData.user.id,
                 email: authData.user.email,
-                first_name: authData.user.user_metadata?.first_name || '',
-                last_name: authData.user.user_metadata?.last_name || '',
+                first_name: authData.user.user_metadata?.first_name || authData.user.user_metadata?.name?.split(' ')[0] || '',
+                last_name: authData.user.user_metadata?.last_name || authData.user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
                 profile_image_url: authData.user.user_metadata?.picture,
               });
 
@@ -156,7 +183,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+      // Clear AsyncStorage
+      await AsyncStorage.multiRemove(['authToken', 'userSession']);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   }
 
   async function signUp(email: string, password: string) {

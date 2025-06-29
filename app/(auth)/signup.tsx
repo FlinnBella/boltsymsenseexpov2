@@ -305,9 +305,15 @@ export default function SignupScreen() {
       createdUserId = authData.user.id;
       console.log('Auth user created:', createdUserId);
 
-      // Store auth token
+      // Store auth token in AsyncStorage
       if (authData.session?.access_token) {
         await AsyncStorage.setItem('authToken', authData.session.access_token);
+        await AsyncStorage.setItem('userSession', JSON.stringify({
+          userId: authData.user.id,
+          email: formData.email,
+          accessToken: authData.session.access_token,
+          refreshToken: authData.session.refresh_token,
+        }));
       }
 
       // Create Zustand store of user for global access

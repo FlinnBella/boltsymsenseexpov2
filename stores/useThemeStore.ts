@@ -29,13 +29,13 @@ export const lightTheme: ThemeColors = {
 };
 
 export const darkTheme: ThemeColors = {
-  background: '#1F2937', // Dark gray
-  surface: '#374151', // Slightly lighter dark gray
+  background: '#374151', // Gray 700
+  surface: '#4B5563', // Gray 600
   primary: '#064E3B', // Dark jade green (same as light)
   secondary: '#10B981', // Jade green (same as light)
   text: '#FFFFFF',
   textSecondary: '#9CA3AF',
-  border: '#4B5563',
+  border: '#6B7280',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',

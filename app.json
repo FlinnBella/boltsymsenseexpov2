@@ -12,9 +12,12 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
+          "voip",
           "voip"
-        ]
-      }
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "iossym"
     },
     "android": {
       "package": "com.boltsymsenseexpov2.app",

@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useAuth } from '../contexts/AuthContext';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithGoogle, signInWithFacebook } = useAuth();
+  const colors = useThemeColors();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -29,7 +31,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.container}>
+    <LinearGradient colors={['#064E3B', '#10B981']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -41,10 +43,10 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
               <Mail color="#6B7280" size={20} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.text }]}
                 placeholder="Email"
                 placeholderTextColor="#9CA3AF"
                 value={email}
@@ -54,10 +56,10 @@ export default function LoginScreen() {
               />
             </View>
 
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
               <Lock color="#6B7280" size={20} style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, styles.passwordInput]}
+                style={[styles.input, styles.passwordInput, { color: colors.text }]}
                 placeholder="Password"
                 placeholderTextColor="#9CA3AF"
                 value={password}
@@ -144,7 +146,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -156,7 +157,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1F2937',
   },
   passwordInput: {
     paddingRight: 40,

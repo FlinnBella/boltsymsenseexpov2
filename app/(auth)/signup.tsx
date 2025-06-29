@@ -19,6 +19,7 @@ import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import VerifiedModal from '@/components/Modal/VerifiedModal';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { useUserStore } from '@/stores/useUserStore';
+import { useThemeColors } from '@/stores/useThemeStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTOIMMUNE_DISEASES = [
@@ -49,6 +50,7 @@ export default function SignupScreen() {
   const [showVerifiedModal, setShowVerifiedModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [addressAutocompleted, setAddressAutocompleted] = useState(false);
+  const colors = useThemeColors();
   
   // Zustand store hooks
   const { setAuth, setUserProfile } = useUserStore();
@@ -375,10 +377,10 @@ export default function SignupScreen() {
       <Text style={styles.stepSubtitle}>Let's start with the basics</Text>
 
       <View style={styles.form}>
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
           <User color="#6B7280" size={20} style={styles.inputIcon} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="First Name"
             placeholderTextColor="#9CA3AF"
             value={formData.firstName}
@@ -387,10 +389,10 @@ export default function SignupScreen() {
           />
         </View>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
           <User color="#6B7280" size={20} style={styles.inputIcon} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Last Name"
             placeholderTextColor="#9CA3AF"
             value={formData.lastName}
@@ -413,7 +415,7 @@ export default function SignupScreen() {
             key={disease.name}
             style={[
               styles.diseaseBubble,
-              formData.autoimmuneDiseases.includes(disease.name) && styles.diseaseBubbleSelected,
+              formData.autoimmuneDiseases.includes(disease.name) && [styles.diseaseBubbleSelected, { backgroundColor: colors.primary }],
             ]}
             onPress={() => handleDiseaseToggle(disease.name)}
           >
@@ -450,9 +452,9 @@ export default function SignupScreen() {
         />
 
         <View style={styles.row}>
-          <View style={[styles.inputContainer, styles.halfWidth]}>
+          <View style={[styles.inputContainer, styles.halfWidth, { backgroundColor: colors.background }]}>
             <TextInput
-              style={[styles.input, addressAutocompleted ? styles.disabledInput : null]}
+              style={[styles.input, addressAutocompleted ? styles.disabledInput : null, { color: colors.text }]}
               placeholder="ZIP Code"
               placeholderTextColor="#9CA3AF"
               value={formData.zipCode}
@@ -463,9 +465,9 @@ export default function SignupScreen() {
             />
           </View>
 
-          <View style={[styles.inputContainer, styles.halfWidth]}>
+          <View style={[styles.inputContainer, styles.halfWidth, { backgroundColor: colors.background }]}>
             <TextInput
-              style={[styles.input, styles.disabledInput]}
+              style={[styles.input, styles.disabledInput, { color: colors.textSecondary }]}
               placeholder="City"
               placeholderTextColor="#9CA3AF"
               value={formData.city}
@@ -474,9 +476,9 @@ export default function SignupScreen() {
           </View>
         </View>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
           <TextInput
-            style={[styles.input, styles.disabledInput]}
+            style={[styles.input, styles.disabledInput, { color: colors.textSecondary }]}
             placeholder="State"
             placeholderTextColor="#9CA3AF"
             value={formData.state}
@@ -489,18 +491,6 @@ export default function SignupScreen() {
             ✅ Address auto-filled. Edit the address above to make changes.
           </Text>
         )}
-
-        {/* Debug info - remove in production */}
-        {__DEV__ && (
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugText}>Debug Info:</Text>
-            <Text style={styles.debugText}>Address: {formData.address}</Text>
-            <Text style={styles.debugText}>City: {formData.city}</Text>
-            <Text style={styles.debugText}>State: {formData.state}</Text>
-            <Text style={styles.debugText}>ZIP: {formData.zipCode}</Text>
-            <Text style={styles.debugText}>Autocompleted: {addressAutocompleted ? 'Yes' : 'No'}</Text>
-          </View>
-        )}
       </View>
     </Animated.View>
   );
@@ -511,10 +501,10 @@ export default function SignupScreen() {
       <Text style={styles.stepSubtitle}>Get your email verified</Text>
 
       <View style={styles.form}>
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
           <Mail color="#6B7280" size={20} style={styles.inputIcon} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Email"
             placeholderTextColor="#9CA3AF"
             value={formData.email}
@@ -525,9 +515,9 @@ export default function SignupScreen() {
           />
         </View>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Password (8+ chars, mixed case, number)"
             placeholderTextColor="#9CA3AF"
             value={formData.password}
@@ -537,9 +527,9 @@ export default function SignupScreen() {
           />
         </View>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.background }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Confirm Password"
             placeholderTextColor="#9CA3AF"
             value={formData.confirmPassword}
@@ -568,7 +558,7 @@ export default function SignupScreen() {
   };
 
   return (
-    <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.container}>
+    <LinearGradient colors={['#064E3B', '#10B981']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -732,7 +722,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -744,7 +733,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1F2937',
   },
   disabledInput: {
     color: '#9CA3AF',
@@ -760,18 +748,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     fontWeight: '500',
-  },
-  debugContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  debugText: {
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 2,
   },
   diseasesContainer: {
     flexDirection: 'row',
@@ -794,7 +770,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   diseaseBubbleSelected: {
-    backgroundColor: '#F97316',
     borderColor: 'white',
   },
   diseaseEmoji: {

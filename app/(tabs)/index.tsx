@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Bot, User, Loader, Plus } from 'lucide-react-native';
+import { Send, Dog, User, Loader, Plus } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
@@ -43,7 +43,7 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
         {message.isUser ? (
           <User color="white" size={16} />
         ) : (
-          <Bot color="white" size={16} />
+          <Dog color="white" size={16} />
         )}
       </View>
       <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
@@ -76,7 +76,7 @@ const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: ()
       style={styles.placeholderContainer}
     >
       <View style={[styles.placeholderIcon, { backgroundColor: colors.primary + '20' }]}>
-        <Bot color={colors.primary} size={48} />
+        <Dog color={colors.primary} size={48} />
       </View>
       <Text style={[styles.placeholderTitle, { color: colors.text }]}>Chat with SymSense AI</Text>
       <Text style={[styles.placeholderSubtitle, { color: colors.textSecondary }]}>
@@ -249,7 +249,7 @@ export default function AIScreen() {
             >
               <View style={styles.messageHeader}>
                 <View style={[styles.messageIcon, { backgroundColor: colors.text }]}>
-                  <Bot color="white" size={16} />
+                  <Dog color="white" size={16} />
                 </View>
                 <Text style={[styles.messageTime, { color: colors.textSecondary }]}>Now</Text>
               </View>

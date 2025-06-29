@@ -19,7 +19,7 @@ export const lightTheme: ThemeColors = {
   background: '#FFFFFF',
   surface: '#F9FAFB',
   primary: '#064E3B', // Dark jade green
-  secondary: '#10B981',
+  secondary: '#10B981', // Jade green
   text: '#1F2937',
   textSecondary: '#6B7280',
   border: '#E5E7EB',
@@ -29,13 +29,13 @@ export const lightTheme: ThemeColors = {
 };
 
 export const darkTheme: ThemeColors = {
-  background: '#111111',
-  surface: '#000000',
-  primary: '#064E3B', // Dark jade green
-  secondary: '#10B981',
+  background: '#1F2937', // Dark gray
+  surface: '#374151', // Slightly lighter dark gray
+  primary: '#064E3B', // Dark jade green (same as light)
+  secondary: '#10B981', // Jade green (same as light)
   text: '#FFFFFF',
   textSecondary: '#9CA3AF',
-  border: '#374151',
+  border: '#4B5563',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',

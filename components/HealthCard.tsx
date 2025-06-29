@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Video as LucideIcon } from 'lucide-react-native';
 
@@ -9,7 +8,7 @@ interface HealthCardProps {
   value: string | number;
   unit?: string;
   icon: typeof LucideIcon;
-  colors: string[];
+  color: string;
   progress?: number;
   onPress?: () => void;
   delay?: number;
@@ -20,7 +19,7 @@ export default function HealthCard({
   value,
   unit,
   icon: Icon,
-  colors,
+  color,
   progress,
   onPress,
   delay = 0,
@@ -28,37 +27,35 @@ export default function HealthCard({
   return (
     <Animated.View entering={FadeInUp.delay(delay).duration(600)}>
       <TouchableOpacity
-        style={styles.container}
+        style={[styles.container, { backgroundColor: color }]}
         onPress={onPress}
         activeOpacity={0.8}
       >
-        <LinearGradient colors={colors as [string, string, ...string[]]} style={styles.gradient}>
-          <View style={styles.header}>
-            <Icon color="white" size={24} />
-            <Text style={styles.title}>{title}</Text>
-          </View>
+        <View style={styles.header}>
+          <Icon color="white" size={24} />
+          <Text style={styles.title}>{title}</Text>
+        </View>
+        
+        <View style={styles.content}>
+          <Text style={styles.value}>
+            {value}
+            {unit ? <Text style={styles.unit}> {unit}</Text> : null}
+          </Text>
           
-          <View style={styles.content}>
-            <Text style={styles.value}>
-              {value}
-              {unit ? <Text style={styles.unit}> {unit}</Text> : null}
-            </Text>
-            
-            {progress !== undefined && (
-              <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${Math.min(progress, 100)}%` },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.progressText}>{progress}%</Text>
+          {progress !== undefined && (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(progress, 100)}%` },
+                  ]}
+                />
               </View>
-            )}
-          </View>
-        </LinearGradient>
+              <Text style={styles.progressText}>{progress}%</Text>
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -73,8 +70,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-  },
-  gradient: {
     padding: 20,
     minHeight: 140,
   },

@@ -29,12 +29,22 @@ export interface FoodLog {
   created_at: string;
 }
 
-export interface UserPreferences {
+export interface HealthDataCache {
   id: string;
+  user_id: string;
+  steps: number;
+  heart_rate_avg?: number;
+  calories: number;
+  sleep?: number;
+  distance: number;
+  active_minutes: number;
+  created_at: string;
+}
+
+export interface UserPreferences {
   user_id: string;
   wearable_connected: boolean;
   wearable_prompt_dismissed: boolean;
-  dashboard_layout: string[];
   notification_preferences: {
     achievements: boolean;
     healthAlerts: boolean;
@@ -125,7 +135,7 @@ export async function createMedicationLog(
 // Food Logs
 export async function getFoodLogs(userId: string, limit = 50): Promise<FoodLog[]> {
   const { data, error } = await supabase
-    .from('food_logs')
+    .from('food_logs_cache')
     .select('*')
     .eq('user_id', userId)
     .order('consumed_at', { ascending: false })
@@ -145,7 +155,7 @@ export async function createFoodLog(
   negativeEffects?: string
 ): Promise<void> {
   const { error } = await supabase
-    .from('food_logs')
+    .from('food_logs_cache')
     .insert({
       user_id: userId,
       food_name: foodName,

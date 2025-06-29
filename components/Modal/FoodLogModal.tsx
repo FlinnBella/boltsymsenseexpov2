@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Save, Apple } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserProfile } from '@/stores/useUserStore';
 
 interface FoodLogModalProps {
   visible: boolean;
@@ -22,7 +22,7 @@ interface FoodLogModalProps {
 }
 
 export default function FoodLogModal({ visible, onClose, onSave }: FoodLogModalProps) {
-  const { userData } = useUserData();
+  const userProfile = useUserProfile();
   const [foodName, setFoodName] = useState('');
   const [negativeEffects, setNegativeEffects] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export default function FoodLogModal({ visible, onClose, onSave }: FoodLogModalP
       const { error } = await supabase
         .from('food_logs')
         .insert({
-          user_id: userData.id,
+          user_id: userProfile?.id,
           food_name: foodName.trim(),
           negative_effects: negativeEffects.trim() || null,
         });

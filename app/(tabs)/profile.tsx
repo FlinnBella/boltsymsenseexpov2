@@ -7,189 +7,241 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity } from 'lucide-react-native';
+import { User, Settings, Bell, Heart, Shield, LogOut, CreditCard as Edit, Smartphone, Target, Calendar, Pill, Plus, Activity, Moon, Sun, House, Camera } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import * as WebBrowser from 'expo-web-browser';
+import * as ImagePicker from 'expo-image-picker';
 
 import { supabase } from '@/lib/supabase';
-import { getUserPreferences, saveUserPreferences, clearUserPreferences, UserPreferences, defaultPreferences } from '@/lib/storage';
-import { getUserProfile, getPatientProfile, getHealthGoals, updateHealthGoal, getUserPreferencesFromDB, updateUserPreferencesInDB, UserProfile, PatientProfile } from '@/lib/api/profile';
-import { getTerraConnections, terraAPI, saveTerraConnection } from '@/lib/api/terra';
 import ProfileEditModal from '@/components/Modal/ProfileEditModal';
 import WearableConnectionModal from '@/components/Modal/WearableConnectionModal';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUserData } from '@/hooks/useUserData';
+import { useUserStore, useUserProfile, useUserPreferences, useIsLoadingProfile, useIsLoadingPreferences, useHealthData } from '@/stores/useUserStore';
+import { useThemeStore, useIsDarkMode, useThemeColors } from '@/stores/useThemeStore';
+import { getUserProfile, getPatientProfile, PatientProfile } from '@/lib/api/profile';
 
 export default function ProfileScreen() {
-  const { userData, clearUserData } = useUserData();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [terraConnections, setTerraConnections] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showWearableConnectionModal, setShowWearableConnectionModal] = useState(false);
-
- 
-  useEffect(() => {
-    loadUserData();
-    loadPreferences();
-  }, [userData]);
-
+  // Use Zustand stores
+  const userProfile = useUserProfile();
+  const healthData = useHealthData();
+  const preferences = useUserPreferences();
+  const isLoadingProfile = useIsLoadingProfile();
+  const isLoadingPreferences = useIsLoadingPreferences();
+  const { updatePreferences, signOut, fetchUserProfile, updateUserProfile } = useUserStore();
   
+  // Theme store
+  const { toggleTheme } = useThemeStore();
+  const isDarkMode = useIsDarkMode();
+  const colors = useThemeColors();
+  
+  const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [connectedDevices, setConnectedDevices] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showWearableConnectionModal, setShowWearableConnectionModal] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  const loadUserData = async () => {
+  useEffect(() => {
+    loadPatientData();
+    loadConnectedDevices();
+    loadProfileImage();
+  }, [userProfile]);
+
+  const loadPatientData = async () => {
     try {
-      if (!userData) {
-        setLoading(false);
+      if (!userProfile) return;
+
+      const patientData = await getPatientProfile(userProfile.id);
+      setPatientProfile(patientData);
+    } catch (error) {
+      console.error('Error loading patient data:', error);
+    }
+  };
+
+  const loadConnectedDevices = async () => {
+    try {
+      if (preferences?.wearableConnected) {
+        setConnectedDevices(['Health App']);
+      } else {
+        setConnectedDevices([]);
+      }
+    } catch (error) {
+      console.error('Error loading connected devices:', error);
+    }
+  };
+
+  const loadProfileImage = () => {
+    if (userProfile?.profile_image_url) {
+      setProfileImage(userProfile.profile_image_url);
+    }
+  };
+
+  const updateNotificationPreference = async (key: keyof typeof preferences.notifications, value: boolean) => {
+    if (!preferences || !userProfile) return;
+
+    const updatedNotifications = {
+      ...preferences.notifications,
+      [key]: value,
+    };
+
+    try {
+      await updatePreferences({ 
+        notifications: updatedNotifications 
+      });
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      Alert.alert('Error', 'Failed to update preference. Please try again.');
+    }
+  };
+
+  const handleImagePicker = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
         return;
       }
 
-      console.log('User:', userData);
-      
-      const profile = await getUserProfile(userData.id);
-      console.log('Profile:', profile);
-      setUserProfile(profile);
-
-      const patientData = await getPatientProfile(userData.id);
-      console.log('Patient Data:', patientData);
-      setPatientProfile(patientData);
+      // Show action sheet
+      Alert.alert(
+        'Select Profile Image',
+        'Choose how you want to select your profile image',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Camera', onPress: () => openCamera() },
+          { text: 'Photo Library', onPress: () => openImageLibrary() },
+        ]
+      );
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('Error requesting permissions:', error);
+      Alert.alert('Error', 'Failed to request permissions');
+    }
+  };
+
+  const openCamera = async () => {
+    try {
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (cameraPermission.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera is required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening camera:', error);
+      Alert.alert('Error', 'Failed to open camera');
+    }
+  };
+
+  const openImageLibrary = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening image library:', error);
+      Alert.alert('Error', 'Failed to open image library');
+    }
+  };
+
+  const uploadProfileImage = async (imageUri: string) => {
+    if (!userProfile) return;
+
+    setLoading(true);
+    try {
+      // Create a unique filename
+      const fileExt = imageUri.split('.').pop();
+      const fileName = `${userProfile.id}-${Date.now()}.${fileExt}`;
+
+      // Convert image to blob for upload
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(fileName, blob, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(fileName);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Update user profile with image URL
+      await updateUserProfile({
+        profile_image_url: publicUrl,
+      });
+
+      setProfileImage(publicUrl);
+      Alert.alert('Success', 'Profile image updated successfully!');
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      Alert.alert('Error', 'Failed to upload profile image. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadPreferences = async () => {
-    try {
-      if (!userData) return;
-
-      // First try to get from AsyncStorage (fast)
-      let prefs = await getUserPreferences();
-
-      // Check if we have default preferences (meaning nothing was cached)
-      const isDefaultPrefs = JSON.stringify(prefs) === JSON.stringify(defaultPreferences);
-      
-      if (isDefaultPrefs) {
-        try {
-          // If using defaults, try to get from DB
-          prefs = await getUserPreferencesFromDB(userData.id);
-          // Cache the DB preferences in AsyncStorage
-          await saveUserPreferences(prefs);
-        } catch (error) {
-          console.error('Error loading preferences from DB, using defaults:', error);
-          // Keep using defaults if DB fails
-        }
-      }
-
-      setPreferences(prefs);
-    } catch (error) {
-      console.error('Error loading preferences:', error);
-      setPreferences(defaultPreferences);
-    }
-  };
-
-  const loadTerraConnections = async () => {
-    try {
-      if (!userData) return;
-
-      const connections = await getTerraConnections(userData.id);
-      setTerraConnections(connections);
-    } catch (error) {
-      console.error('Error loading Terra connections:', error);
-    }
-  };
-
-  const updateNotificationPreference = async (key: keyof UserPreferences['notifications'], value: boolean) => {
-    if (!preferences || !userData) return;
-
-    const updatedPreferences = {
-      ...preferences,
-      notifications: {
-        ...preferences.notifications,
-        [key]: value,
-      },
-    };
-
-    try {
-      // Update local state immediately for better UX
-      setPreferences(updatedPreferences);
-      
-      // Update AsyncStorage
-      await saveUserPreferences(updatedPreferences);
-      
-      // Update database
-      await updateUserPreferencesInDB(userData.id, updatedPreferences);
-    } catch (error) {
-      console.error('Error updating preferences:', error);
-      // Revert on error
-      setPreferences(preferences);
-      Alert.alert('Error', 'Failed to update preference. Please try again.');
-    }
-  };
-
   const handleConnectWearable = async () => {
-    if (!userData) return;
+    if (!userProfile) return;
 
     Alert.alert(
-      'Connect Wearable Device',
-      'Choose your wearable device provider:',
+      'Connect Health App',
+      'Would you like to enable health data tracking?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Apple Health', onPress: () => connectProvider('APPLE') },
-        { text: 'Google Fit', onPress: () => connectProvider('GOOGLE') },
-        { text: 'Fitbit', onPress: () => connectProvider('FITBIT') },
-        { text: 'Garmin', onPress: () => connectProvider('GARMIN') },
+        { 
+          text: 'Enable Health Tracking', 
+          onPress: async () => {
+            try {
+              await updatePreferences({ wearableConnected: true });
+              setConnectedDevices(['Health App']);
+              Alert.alert('Success', 'Health tracking enabled successfully!');
+            } catch (error) {
+              console.error('Error enabling health tracking:', error);
+              Alert.alert('Error', 'Failed to enable health tracking. Please try again.');
+            }
+          }
+        },
       ]
     );
   };
 
-  const connectProvider = async (provider: string) => {
-    try {
-      if (!userData) return;
-
-      const referenceId = `${userData.id}_${provider}_${Date.now()}`;
-      const authData = await terraAPI.generateAuthURL(provider, referenceId);
-
-      if (authData.auth_url) {
-        const result = await WebBrowser.openBrowserAsync(authData.auth_url);
-        
-        if (result.type === 'dismiss') {
-          // User closed the browser, check if connection was successful
-          setTimeout(async () => {
-            try {
-              await saveTerraConnection({
-                user_id: userData.id,
-                terra_user_id: authData.user_id,
-                provider,
-                reference_id: referenceId,
-                is_active: true,
-                last_sync_at: null,
-              });
-              
-              Alert.alert('Success', `${provider} connected successfully!`);
-              loadTerraConnections();
-            } catch (error) {
-              console.error('Error saving connection:', error);
-            }
-          }, 2000);
-        }
-      }
-    } catch (error) {
-      console.error('Error connecting provider:', error);
-      Alert.alert('Error', 'Failed to connect wearable device. Please try again.');
-    }
-  };
-
-  const handleDisconnectWearable = (connection: any) => {
+  const handleDisconnectWearable = (deviceName: string) => {
     Alert.alert(
-      'Disconnect Wearable',
-      `Are you sure you want to disconnect ${connection.provider}?`,
+      'Disconnect Health Tracking',
+      `Are you sure you want to disconnect ${deviceName}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -197,12 +249,12 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await terraAPI.deauthUser(connection.terra_user_id);
-              Alert.alert('Success', 'Wearable disconnected successfully');
-              loadTerraConnections();
+              await updatePreferences({ wearableConnected: false });
+              setConnectedDevices([]);
+              Alert.alert('Success', 'Health tracking disconnected successfully');
             } catch (error) {
-              console.error('Error disconnecting wearable:', error);
-              Alert.alert('Error', 'Failed to disconnect wearable');
+              console.error('Error disconnecting health tracking:', error);
+              Alert.alert('Error', 'Failed to disconnect health tracking');
             }
           },
         },
@@ -221,14 +273,7 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Clear UserContext data
-              await clearUserData();
-              // Sign out from Supabase
-              await supabase.auth.signOut();
-              // Clear auth token
-              await AsyncStorage.removeItem('authToken');
-              // Navigate to login
-              router.replace('/(auth)/login');
+              await signOut();
             } catch (error) {
               console.error('Error signing out:', error);
               Alert.alert('Error', 'Failed to sign out completely. Please try again.');
@@ -241,8 +286,8 @@ export default function ProfileScreen() {
 
   const ProfileSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionContent}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      <View style={[styles.sectionContent, { backgroundColor: colors.background }]}>
         {children}
       </View>
     </View>
@@ -261,56 +306,74 @@ export default function ProfileScreen() {
     onPress?: () => void;
     rightElement?: React.ReactNode;
   }) => (
-    <TouchableOpacity style={styles.profileItem} onPress={onPress}>
+    <TouchableOpacity style={[styles.profileItem, { borderBottomColor: colors.border }]} onPress={onPress}>
       <View style={styles.profileItemLeft}>
-        <View style={styles.profileItemIcon}> 
-          <Icon color="#6B7280" size={20} />
+        <View style={[styles.profileItemIcon, { backgroundColor: colors.surface }]}> 
+          <Icon color={colors.textSecondary} size={20} />
         </View>
         <View>
-          <Text style={styles.profileItemTitle}>{title}</Text>
-          {subtitle ? <Text style={styles.profileItemSubtitle}>{subtitle}</Text> : null}
+          <Text style={[styles.profileItemTitle, { color: colors.text }]}>{title}</Text>
+          {subtitle ? <Text style={[styles.profileItemSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
         </View>
       </View>
         {rightElement}
     </TouchableOpacity>
   );
 
-  if (loading || !userData || !userProfile || !preferences) {
+  if (loading || !userProfile || !preferences || isLoadingProfile || isLoadingPreferences) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       <WearableConnectionModal visible={showWearableConnectionModal} onConnect={handleConnectWearable} onDismiss={() => setShowWearableConnectionModal(false)} />
+      
+      {/* Header */}
+      <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { backgroundColor: colors.surface }]}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/stats')} style={[styles.homeButton, { backgroundColor: colors.background }]}>
+            <House color={colors.text} size={24} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+          <View style={styles.placeholder} />
+        </View>
+      </Animated.View>
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
-        <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-          <LinearGradient colors={['#3B82F6', '#1E40AF']} style={styles.headerGradient}>
+        <Animated.View entering={FadeInUp.duration(600)} style={styles.profileHeaderSection}>
             <View style={styles.profileHeader}>
-              <View style={styles.avatar}>
-                <User color="white" size={32} />
-              </View>
+              <TouchableOpacity onPress={handleImagePicker} style={styles.avatarContainer}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                    <User color="white" size={32} />
+                  </View>
+                )}
+                <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
+                  <Camera color="white" size={16} />
+                </View>
+              </TouchableOpacity>
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>
+                <Text style={[styles.profileName, { color: colors.text }]}>
                   {userProfile.first_name} {userProfile.last_name}
                 </Text>
-                <Text style={styles.profileEmail}>{userProfile.email}</Text>
+                <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{userProfile.email}</Text>
               </View>
               <TouchableOpacity 
-                style={styles.editButton}
+                style={[styles.editButton, { backgroundColor: colors.primary }]}
                 onPress={() => setShowEditModal(true)}
               >
                 <Edit color="white" size={20} />
               </TouchableOpacity>
             </View>
-          </LinearGradient>
         </Animated.View>
 
         
@@ -319,19 +382,19 @@ export default function ProfileScreen() {
             <ProfileItem
               icon={Target}
               title="Daily Steps"
-              subtitle={`${preferences.healthGoals.steps.toLocaleString()} steps`}
+              subtitle={`${healthData.HealthGoals.steps.toLocaleString()} steps`}
               onPress={() => {}}
             />
             <ProfileItem
               icon={Heart}
               title="Calories Goal"
-              subtitle={`${preferences.healthGoals.calories} kcal`}
+              subtitle={`${healthData.HealthGoals.calories} kcal`}
               onPress={() => {}}
             />
             <ProfileItem
               icon={Activity}
               title="Active Minutes"
-              subtitle={`${preferences.healthGoals.activeMinutes} minutes`}
+              subtitle={`${healthData.HealthGoals.activeMinutes} minutes`}
               onPress={() => {}}
             />
           </ProfileSection>
@@ -339,22 +402,22 @@ export default function ProfileScreen() {
 
         
         <Animated.View entering={FadeInUp.delay(400).duration(600)}>
-          <ProfileSection title="Connected Devices">
-            {terraConnections.length > 0 ? (
-              terraConnections.map((connection) => (
+          <ProfileSection title="Health Tracking">
+            {connectedDevices.length > 0 ? (
+              connectedDevices.map((deviceName) => (
                 <ProfileItem
-                  key={connection.id}
+                  key={deviceName}
                   icon={Smartphone}
-                  title={connection.provider}
-                  subtitle={connection.is_active ? 'Connected' : 'Disconnected'}
-                  onPress={() => handleDisconnectWearable(connection)}
+                  title={deviceName}
+                  subtitle="Connected"
+                  onPress={() => handleDisconnectWearable(deviceName)}
                 />
               ))
             ) : (
               <ProfileItem
                 icon={Plus}
-                title="Connect Wearable Device"
-                subtitle="Connect your fitness tracker or smartwatch"
+                title="Enable Health Tracking"
+                subtitle="Track your health metrics and activities"
                 onPress={handleConnectWearable}
               />
             )}
@@ -372,7 +435,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={preferences.notifications.achievements}
                   onValueChange={(value) => updateNotificationPreference('achievements', value)}
-                  trackColor={{ false: '#D1D5DB', true: '#3B82F6' }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="white"
                 />
               }
@@ -385,7 +448,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={preferences.notifications.healthAlerts}
                   onValueChange={(value) => updateNotificationPreference('healthAlerts', value)}
-                  trackColor={{ false: '#D1D5DB', true: '#3B82F6' }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="white"
                 />
               }
@@ -398,7 +461,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={preferences.notifications.medications}
                   onValueChange={(value) => updateNotificationPreference('medications', value)}
-                  trackColor={{ false: '#D1D5DB', true: '#3B82F6' }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="white"
                 />
               }
@@ -411,7 +474,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={preferences.notifications.appointments}
                   onValueChange={(value) => updateNotificationPreference('appointments', value)}
-                  trackColor={{ false: '#D1D5DB', true: '#3B82F6' }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="white"
                 />
               }
@@ -422,6 +485,19 @@ export default function ProfileScreen() {
         
         <Animated.View entering={FadeInUp.delay(800).duration(600)}>
           <ProfileSection title="Settings">
+            <ProfileItem
+              icon={isDarkMode ? Sun : Moon}
+              title="Dark Mode"
+              subtitle={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+              rightElement={
+                <Switch
+                  value={isDarkMode}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="white"
+                />
+              }
+            />
             <ProfileItem
               icon={Settings}
               title="App Settings"
@@ -444,9 +520,9 @@ export default function ProfileScreen() {
         </Animated.View>
 
         
-        <Animated.View entering={FadeInUp.delay(1000).duration(600)} style={styles.disclaimer}>
-          <Text style={styles.disclaimerTitle}>Medical Disclaimer</Text>
-          <Text style={styles.disclaimerText}>
+        <Animated.View entering={FadeInUp.delay(1000).duration(600)} style={[styles.disclaimer, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
+          <Text style={[styles.disclaimerTitle, { color: colors.warning }]}>Medical Disclaimer</Text>
+          <Text style={[styles.disclaimerText, { color: colors.warning }]}>
             This app provides general health information and is not intended to replace professional medical advice, 
             diagnosis, or treatment. Always consult with qualified healthcare providers for medical concerns. 
             In case of emergency, contact emergency services immediately.
@@ -459,7 +535,7 @@ export default function ProfileScreen() {
         onClose={() => setShowEditModal(false)}
         userProfile={userProfile}
         patientProfile={patientProfile}
-        onSave={loadUserData}
+        onSave={fetchUserProfile}
       />
     </SafeAreaView>
   );
@@ -468,7 +544,30 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 12, // Reduced padding
+    marginBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  homeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: 'Poppins-Bold',
+  },
+  placeholder: {
+    width: 40,
   },
   scrollView: {
     flex: 1,
@@ -481,28 +580,42 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
   },
-  header: {
+  profileHeaderSection: {
     marginBottom: 24,
-  },
-  headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 30,
     paddingHorizontal: 20,
   },
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+  },
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
   },
   profileInfo: {
     flex: 1,
@@ -510,19 +623,16 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 20,
     fontFamily: 'Poppins-Bold',
-    color: 'white',
     marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
   },
   editButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -533,11 +643,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'Poppins-SemiBold',
-    color: '#1F2937',
     marginBottom: 12,
   },
   sectionContent: {
-    backgroundColor: 'white',
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -548,7 +656,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   profileItemLeft: {
     flexDirection: 'row',
@@ -559,7 +666,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -567,32 +673,26 @@ const styles = StyleSheet.create({
   profileItemTitle: {
     fontSize: 16,
     fontFamily: 'Inter-Medium',
-    color: '#1F2937',
   },
   profileItemSubtitle: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
     marginTop: 2,
   },
   disclaimer: {
     margin: 20,
     padding: 16,
-    backgroundColor: '#FEF3C7',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F59E0B',
   },
   disclaimerTitle: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: '#92400E',
     marginBottom: 8,
   },
   disclaimerText: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#92400E',
     lineHeight: 20,
   },
 });

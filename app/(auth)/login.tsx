@@ -1,26 +1,17 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, KeyboardAvoidingView, Platform, View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
 import { router } from 'expo-router';
-import  supabase  from '../../lib/supabase';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { signIn, signInWithGoogle, signInWithFacebook } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -29,38 +20,25 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { error } = await signIn(email, password);
+    setLoading(false);
 
-      if (error) {
-        Alert.alert('Login Failed', error.message);
-      } else {
-        router.replace('/(tabs)');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
-    } finally {
-      setLoading(false);
+    if (error) {
+      Alert.alert('Login Failed', error.message);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <LinearGradient
-            colors={['#3B82F6', '#1E40AF']}
-            style={styles.header}
-          >
+        <Animated.View entering={FadeInUp.duration(800)} style={styles.content}>
+          <View style={styles.header}>
             <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to your account</Text>
-          </LinearGradient>
+            <Text style={styles.subtitle}>Sign in to your health dashboard</Text>
+          </View>
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
@@ -68,23 +46,23 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Email"
+                placeholderTextColor="#9CA3AF"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                autoCorrect={false}
               />
             </View>
 
             <View style={styles.inputContainer}>
               <Lock color="#6B7280" size={20} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.passwordInput]}
                 placeholder="Password"
+                placeholderTextColor="#9CA3AF"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                autoCapitalize="none"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -99,44 +77,54 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+              style={[styles.button, loading ? styles.buttonDisabled : null]}
               onPress={handleLogin}
               disabled={loading}
             >
-              <Text style={styles.loginButtonText}>
+              <Text style={styles.buttonText}>
                 {loading ? 'Signing In...' : 'Sign In'}
               </Text>
             </TouchableOpacity>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-                <Text style={styles.signupLink}>Sign Up</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => router.push('/(auth)/signup')}
+            >
+              <Text style={styles.linkText}>
+                Don't have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
+
+          <View style={styles.socialLoginContainer}>
+            <TouchableOpacity style={[styles.socialButton, styles.googleButton]} onPress={signInWithGoogle}>
+              <Text style={styles.socialButtonText}>Sign in with Google</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.socialButton, styles.facebookButton]} onPress={signInWithFacebook}>
+              <Text style={styles.socialButtonText}>Sign in with Facebook</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   keyboardView: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
     alignItems: 'center',
+    marginBottom: 48,
   },
   title: {
     fontSize: 32,
@@ -148,25 +136,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
   },
   form: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    gap: 16,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
     borderRadius: 12,
-    marginBottom: 16,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    height: 56,
   },
   inputIcon: {
     marginRight: 12,
@@ -177,42 +158,63 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#1F2937',
   },
+  passwordInput: {
+    paddingRight: 40,
+  },
   eyeIcon: {
-    padding: 4,
+    position: 'absolute',
+    right: 16,
   },
-  loginButton: {
-    backgroundColor: '#3B82F6',
+  button: {
+    backgroundColor: '#F97316',
     borderRadius: 12,
-    paddingVertical: 16,
+    height: 56,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 8,
   },
-  loginButtonDisabled: {
-    backgroundColor: '#9CA3AF',
+  buttonDisabled: {
+    opacity: 0.6,
   },
-  loginButtonText: {
+  buttonText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
     color: 'white',
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 32,
+  linkButton: {
+    alignItems: 'center',
+    marginTop: 16,
   },
-  footerText: {
+  linkText: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
+    color: 'rgba(255, 255, 255, 0.8)',
   },
-  signupLink: {
-    fontSize: 14,
+  linkTextBold: {
     fontFamily: 'Inter-SemiBold',
-    color: '#3B82F6',
+    color: 'white',
+  },
+  socialLoginContainer: {
+    marginTop: 32,
+    gap: 16,
+  },
+  socialButton: {
+    borderRadius: 12,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+  },
+  facebookButton: {
+    backgroundColor: '#1877F2',
+  },
+  socialButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
+    marginLeft: 12,
   },
 });

@@ -1,71 +1,104 @@
-import { Tabs } from 'expo-router';
-import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple } from 'lucide-react-native';
+import { Drawer } from 'expo-router/drawer';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View, StyleSheet } from 'react-native';
+import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart } from 'lucide-react-native';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 export default function TabLayout() {
+  const colors = useThemeColors();
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#1F2937',
-          borderTopColor: '#374151',
-          height: 80,
-          paddingBottom: 20,
-          paddingTop: 10,
-        },
-        tabBarActiveTintColor: '#F97316',
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: 'Inter-Medium',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ size, color }) => (
-            <Home size={size} color={color} />
-          ),
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        screenOptions={{
+          headerShown: true,
+          headerStyle: {
+            borderBottomWidth: 0,
+            height: 70, // Reduced from 100 to 70
+            elevation: 0,
+            shadowOpacity: 0,
+            backgroundColor: colors.surface,
+          },
+          headerTransparent: false,
+          headerTintColor: colors.text,
+          headerTitleStyle: {
+            fontFamily: 'Poppins-Bold',
+            fontSize: 18,
+            color: colors.text,
+            textAlign: 'center',
+            alignSelf: 'center',
+            flex: 1,
+            position: 'absolute',
+            left: 0,
+            right: 0,
+          },
+          drawerStyle: {
+            backgroundColor: colors.surface,
+          },
+          drawerContentStyle: {
+            backgroundColor: colors.surface,
+          },
+          drawerActiveTintColor: colors.primary,
+          drawerInactiveTintColor: colors.textSecondary,
+          drawerActiveBackgroundColor: colors.primary + '20',
+          drawerInactiveBackgroundColor: 'transparent',
+          drawerLabelStyle: {
+            fontFamily: 'Inter-Medium',
+            fontSize: 16,
+            color: colors.text,
+          },
         }}
-      />
-      <Tabs.Screen
-        name="ai"
-        options={{
-          title: 'AI Assistant',
-          tabBarIcon: ({ size, color }) => (
-            <MessageCircle size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ size, color }) => (
-            <User size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="log-symptoms"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="add-medication"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="health-metrics"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-    </Tabs>
+      >
+        <Drawer.Screen 
+          name="index" 
+          options={{ 
+            title: 'SymSense Chat',
+            drawerIcon: ({ color }) => <MessageCircle color={color} size={24} />
+          }} 
+        />
+        <Drawer.Screen 
+          name="stats" 
+          options={{ 
+            title: 'Health Statistics',
+            drawerIcon: ({ color }) => <TrendingUp color={color} size={24} />
+          }} 
+        />
+        <Drawer.Screen 
+          name="profile" 
+          options={{ 
+            title: 'Profile',
+            drawerIcon: ({ color }) => <User color={color} size={24} />
+          }} 
+        />
+        <Drawer.Screen 
+          name="symptomtracker" 
+          options={{ 
+            title: 'Log Symptoms',
+            drawerIcon: ({ color }) => <AlertCircle color={color} size={24} />
+          }} 
+        />
+        <Drawer.Screen 
+          name="add-medication" 
+          options={{ 
+            title: 'Add Medication',
+            drawerIcon: ({ color }) => <Pill color={color} size={24} />
+          }} 
+        />
+        <Drawer.Screen 
+          name="food-logging" 
+          options={{ 
+            title: 'Food Log',
+            drawerIcon: ({ color }) => <Apple color={color} size={24} />
+          }} 
+        />
+      </Drawer>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    backgroundColor: 'transparent',
+    flex: 1,
+  },
+});

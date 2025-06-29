@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { useAuth } from '../contexts/AuthContext';
+import { useUserStore } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
 
 export default function LoginScreen() {
@@ -12,7 +12,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signInWithGoogle, signInWithFacebook } = useAuth();
+  const { signIn, signInWithGoogle, signInWithFacebook } = useUserStore();
   const colors = useThemeColors();
 
   const handleLogin = async () => {
@@ -30,8 +30,28 @@ export default function LoginScreen() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    const { error } = await signInWithGoogle();
+    setLoading(false);
+
+    if (error) {
+      Alert.alert('Google Sign-In Failed', error.message);
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    setLoading(true);
+    const { error } = await signInWithFacebook();
+    setLoading(false);
+
+    if (error) {
+      Alert.alert('Facebook Sign-In Failed', error.message);
+    }
+  };
+
   return (
-    <LinearGradient colors={['#064E3B', '#10B981']} style={styles.container}>
+    <LinearGradient colors={[colors.primary, '#10B981']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -88,6 +108,30 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.socialContainer}>
+              <TouchableOpacity 
+                style={[styles.socialButton, styles.googleButton]} 
+                onPress={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <Text style={styles.socialButtonText}>Google</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.socialButton, styles.facebookButton]} 
+                onPress={handleFacebookSignIn}
+                disabled={loading}
+              >
+                <Text style={styles.socialButtonText}>Facebook</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
               style={styles.linkButton}
               onPress={() => router.push('/(auth)/signup')}
@@ -95,15 +139,6 @@ export default function LoginScreen() {
               <Text style={styles.linkText}>
                 Don't have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
               </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.socialLoginContainer}>
-            <TouchableOpacity style={[styles.socialButton, styles.googleButton]} onPress={signInWithGoogle}>
-              <Text style={styles.socialButtonText}>Sign in with Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.socialButton, styles.facebookButton]} onPress={signInWithFacebook}>
-              <Text style={styles.socialButtonText}>Sign in with Facebook</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -181,24 +216,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     color: 'white',
   },
-  linkButton: {
+  divider: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginVertical: 24,
   },
-  linkText: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  dividerText: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: 'rgba(255, 255, 255, 0.8)',
+    marginHorizontal: 16,
   },
-  linkTextBold: {
-    fontFamily: 'Inter-SemiBold',
-    color: 'white',
-  },
-  socialLoginContainer: {
-    marginTop: 32,
-    gap: 16,
+  socialContainer: {
+    flexDirection: 'row',
+    gap: 12,
   },
   socialButton: {
+    flex: 1,
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
@@ -215,6 +254,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
     color: 'white',
-    marginLeft: 12,
+  },
+  linkButton: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  linkText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  linkTextBold: {
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
   },
 });

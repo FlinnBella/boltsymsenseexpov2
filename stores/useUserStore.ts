@@ -3,6 +3,26 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { MedicationLog, SymptomLog, FoodLog } from '@/lib/api/healthTracking';
+import { Platform, Alert } from 'react-native';
+import { isNativeOAuthAvailable, isGoogleSignInAvailable, showOAuthSetupError } from '@/lib/oauth';
+
+// Platform-specific imports with error handling
+let GoogleSignin: any = null;
+let LoginManager: any = null;
+let AccessToken: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const googleModule = require('@react-native-google-signin/google-signin');
+    const facebookModule = require('react-native-fbsdk-next');
+    
+    GoogleSignin = googleModule.GoogleSignin;
+    LoginManager = facebookModule.LoginManager;
+    AccessToken = facebookModule.AccessToken;
+  } catch (error) {
+    console.warn('OAuth native modules not available:', error);
+  }
+}
 
 // Types for the user store
 export interface UserProfile {
@@ -22,6 +42,10 @@ export interface UserProfile {
   zip_code?: string;
   country?: string;
   autoimmune_diseases?: string[];
+  provider?: string;
+  provider_id?: string;
+  email_verified?: boolean;
+  email_verified_at?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -106,8 +130,11 @@ interface UserStore {
   
   // Authentication actions
   signIn: (email: string, password: string) => Promise<{ data: any; error: any }>;
+  signInWithGoogle: () => Promise<{ data: any; error: any }>;
+  signInWithFacebook: () => Promise<{ data: any; error: any }>;
   signOut: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<{ data: any; error: any }>;
+  signUp: (email: string, password: string, userData?: any) => Promise<{ data: any; error: any }>;
+  sendVerificationEmail: (email: string, firstName: string) => Promise<void>;
   
   // Data fetching actions
   fetchUserProfile: () => Promise<void>;
@@ -350,11 +377,157 @@ export const useUserStore = create<UserStore>()(
         }
       },
 
+      signInWithGoogle: async () => {
+        set((state) => ({ auth: { ...state.auth, isLoading: true } }));
+        
+        try {
+          // Check if we're on web or if native modules are not available
+          if (Platform.OS === 'web' || !GoogleSignin) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            showOAuthSetupError('google');
+            return { data: null, error: { message: 'Google Sign-In requires a native build' } };
+          }
+
+          // Check if Google Sign-In is properly configured
+          const isAvailable = await isGoogleSignInAvailable();
+          if (!isAvailable) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            return { data: null, error: { message: 'Google Play Services not available' } };
+          }
+
+          // Perform Google Sign-In
+          const userInfo = await GoogleSignin.signIn();
+          
+          if (userInfo.data?.idToken) {
+            const { data, error } = await supabase.auth.signInWithIdToken({
+              provider: 'google',
+              token: userInfo.data.idToken,
+            });
+
+            if (error) {
+              set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+              return { data: null, error };
+            }
+
+            if (data.user && data.session) {
+              await AsyncStorage.setItem('authToken', data.session.access_token);
+              
+              set((state) => ({
+                auth: {
+                  ...state.auth,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  sessionToken: data.session.access_token,
+                },
+              }));
+
+              // Initialize user data after successful sign in
+              await get().initializeUserData();
+            }
+
+            return { data, error: null };
+          }
+
+          throw new Error('No ID token received from Google');
+        } catch (error: any) {
+          console.error('Error signing in with Google:', error);
+          set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+          
+          // Handle specific Google Sign-In errors
+          if (error.code === 'SIGN_IN_CANCELLED') {
+            return { data: null, error: { message: 'Sign-in was cancelled' } };
+          } else if (error.code === 'IN_PROGRESS') {
+            return { data: null, error: { message: 'Sign-in already in progress' } };
+          } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+            return { data: null, error: { message: 'Google Play Services not available' } };
+          }
+          
+          return { data: null, error: { message: error.message || 'Google Sign-In failed' } };
+        }
+      },
+
+      signInWithFacebook: async () => {
+        set((state) => ({ auth: { ...state.auth, isLoading: true } }));
+        
+        try {
+          // Check if we're on web or if native modules are not available
+          if (Platform.OS === 'web' || !LoginManager || !AccessToken) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            showOAuthSetupError('facebook');
+            return { data: null, error: { message: 'Facebook Sign-In requires a native build' } };
+          }
+
+          const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+          
+          if (result.isCancelled) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            return { data: null, error: { message: 'User cancelled login' } };
+          }
+
+          const data = await AccessToken.getCurrentAccessToken();
+          
+          if (data?.accessToken) {
+            const { data: authData, error } = await supabase.auth.signInWithIdToken({
+              provider: 'facebook',
+              token: data.accessToken,
+            });
+
+            if (error) {
+              set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+              return { data: null, error };
+            }
+
+            if (authData.user && authData.session) {
+              await AsyncStorage.setItem('authToken', authData.session.access_token);
+              
+              set((state) => ({
+                auth: {
+                  ...state.auth,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  sessionToken: authData.session.access_token,
+                },
+              }));
+
+              // Initialize user data after successful sign in
+              await get().initializeUserData();
+            }
+
+            return { data: authData, error: null };
+          }
+
+          throw new Error('No access token received from Facebook');
+        } catch (error: any) {
+          console.error('Error signing in with Facebook:', error);
+          set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+          return { data: null, error: { message: error.message || 'Facebook Sign-In failed' } };
+        }
+      },
+
       signOut: async () => {
         try {
           await supabase.auth.signOut();
+          
+          // Sign out from OAuth providers if available
+          if (Platform.OS !== 'web') {
+            try {
+              if (GoogleSignin) {
+                await GoogleSignin.signOut();
+              }
+            } catch (googleError) {
+              console.log('Google sign out error (expected if not signed in):', googleError);
+            }
+            
+            try {
+              if (LoginManager) {
+                await LoginManager.logOut();
+              }
+            } catch (facebookError) {
+              console.log('Facebook sign out error (expected if not signed in):', facebookError);
+            }
+          }
         } catch (error) {
-          console.error('Error signing out from Supabase:', error);
+          console.error('Error signing out from providers:', error);
         } finally {
           try {
             await AsyncStorage.removeItem('authToken');
@@ -365,7 +538,7 @@ export const useUserStore = create<UserStore>()(
         }
       },
 
-      signUp: async (email, password) => {
+      signUp: async (email, password, userData = {}) => {
         set((state) => ({ auth: { ...state.auth, isLoading: true } }));
         
         try {
@@ -397,14 +570,55 @@ export const useUserStore = create<UserStore>()(
           const { data, error } = await supabase.auth.signUp({
             email: email.toLowerCase(),
             password,
+            options: {
+              data: {
+                first_name: userData.first_name || '',
+                last_name: userData.last_name || '',
+                ...userData
+              }
+            }
           });
 
+          if (error) {
+            set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            return { data: null, error };
+          }
+
+          // Send verification email
+          if (data.user && userData.first_name) {
+            try {
+              await get().sendVerificationEmail(email, userData.first_name);
+            } catch (emailError) {
+              console.error('Error sending verification email:', emailError);
+              // Don't fail signup if email sending fails
+            }
+          }
+
           set((state) => ({ auth: { ...state.auth, isLoading: false } }));
-          return { data, error };
+          return { data, error: null };
         } catch (error) {
           console.error('Error signing up:', error);
           set((state) => ({ auth: { ...state.auth, isLoading: false } }));
           return { data: null, error };
+        }
+      },
+
+      sendVerificationEmail: async (email: string, firstName: string) => {
+        try {
+          const verificationUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/auth/v1/verify?token=example&type=signup&redirect_to=${encodeURIComponent('symsense://verify-email')}`;
+          
+          const { error } = await supabase.functions.invoke('send-verification-email', {
+            body: {
+              email,
+              firstName,
+              verificationUrl,
+            },
+          });
+
+          if (error) throw error;
+        } catch (error) {
+          console.error('Error sending verification email:', error);
+          throw error;
         }
       },
 

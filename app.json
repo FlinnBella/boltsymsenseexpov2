@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "bolt-expo-nativewind",
-    "slug": "bolt-expo-nativewind",
+    "name": "SymSense",
+    "slug": "symsense-health-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "symsense",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -13,14 +13,23 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "voip"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "google-signin",
+            "CFBundleURLSchemes": ["com.symsense.app"]
+          }
         ]
-      }
+      },
+      "bundleIdentifier": "com.symsense.app",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "com.boltsymsenseexpov2.app",
+      "package": "com.symsense.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#064E3B"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -35,7 +44,8 @@
         "android.permission.FOREGROUND_SERVICE_CAMERA",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -52,6 +62,25 @@
           "enableCamera": true,
           "enableMicrophone": true,
           "enableScreenShare": true
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.com.symsense.app"
+        }
+      ],
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "YOUR_FACEBOOK_APP_ID",
+          "clientToken": "YOUR_FACEBOOK_CLIENT_TOKEN",
+          "displayName": "SymSense",
+          "scheme": "fbYOUR_FACEBOOK_APP_ID",
+          "advertiserIDCollectionEnabled": false,
+          "autoLogAppEventsEnabled": false,
+          "isAutoInitEnabled": true,
+          "iosUserTrackingPermission": "This identifier will be used to deliver personalized ads to you."
         }
       ]
     ],

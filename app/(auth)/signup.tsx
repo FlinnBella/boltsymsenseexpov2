@@ -13,14 +13,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
 import { User, Mail, ChevronLeft, Check } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import VerifiedModal from '@/components/Modal/VerifiedModal';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { useUserStore } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTOIMMUNE_DISEASES = [
   { name: 'Rheumatoid Arthritis', emoji: '🦴' },
@@ -53,7 +51,7 @@ export default function SignupScreen() {
   const colors = useThemeColors();
   
   // Zustand store hooks
-  const { setAuth, setUserProfile } = useUserStore();
+  const { signUp, signInWithGoogle, signInWithFacebook } = useUserStore();
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -254,107 +252,56 @@ export default function SignupScreen() {
     }
   };
 
-  const rollbackSignup = async (userId?: string) => {
-    if (userId) {
-      try {
-        // Delete from patients table first (due to foreign key)
-        await supabase.from('patients').delete().eq('user_id', userId);
-        // Delete from users table
-        await supabase.from('users').delete().eq('id', userId);
-        // Delete from auth
-        await supabase.auth.admin.deleteUser(userId);
-      } catch (error) {
-        console.error('Error during rollback:', error);
-      }
-    }
-  };
-
   const handleSignup = async () => {
     setLoading(true);
-    let createdUserId: string | null = null;
     
     try {
       console.log('Starting signup process');
-      console.log(formData.email);
       
-      // Create user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-           options: {
-            data: {
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              zip_code: formData.zipCode,
-              city: formData.city,
-              state: formData.state,
-              address_line_1: formData.address,
-              autoimmune_diseases: formData.autoimmuneDiseases,
-            }
-           }
-      });
-      
-      if (authError) {
-        throw new Error(`Auth error: ${authError.message}`);
-      }
-
-      if (!authData.user) {
-        throw new Error('No user returned from auth signup');
-      }
-
-      createdUserId = authData.user.id;
-      console.log('Auth user created:', createdUserId);
-
-      // Store auth token in AsyncStorage
-      if (authData.session?.access_token) {
-        await AsyncStorage.setItem('authToken', authData.session.access_token);
-        await AsyncStorage.setItem('userSession', JSON.stringify({
-          userId: authData.user.id,
-          email: formData.email,
-          accessToken: authData.session.access_token,
-          refreshToken: authData.session.refresh_token,
-        }));
-      }
-
-      // Create Zustand store of user for global access
-      const userProfileData = {
-        id: authData.user.id,
-        email: formData.email,
+      const userData = {
         first_name: formData.firstName,
         last_name: formData.lastName,
-        address_line_1: formData.address,
+        zip_code: formData.zipCode,
         city: formData.city,
         state: formData.state,
-        zip_code: formData.zipCode,
+        address_line_1: formData.address,
         autoimmune_diseases: formData.autoimmuneDiseases,
       };
 
-      // Set user profile in Zustand store
-      setUserProfile(userProfileData);
+      const { data, error } = await signUp(formData.email, formData.password, userData);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
 
-      // Set auth state in Zustand store
-      setAuth({
-        isAuthenticated: true,
-        isLoading: false,
-        sessionToken: authData.session?.access_token,
-      });
-
-      console.log('User profile stored in Zustand:', userProfileData);
-
-      // All operations successful
+      console.log('Signup successful');
       setLoading(false);
       setShowVerifiedModal(true);
 
     } catch (error) {
       console.error('Signup error:', error);
       setLoading(false);
-      
-      // Rollback any created data
-      if (createdUserId) {
-        await rollbackSignup(createdUserId);
-      }
-      
       showToast(`Signup failed: ${error instanceof Error ? error.message : 'An unexpected error occurred'}`);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setLoading(true);
+    const { error } = await signInWithGoogle();
+    setLoading(false);
+
+    if (error) {
+      Alert.alert('Google Sign-Up Failed', error.message);
+    }
+  };
+
+  const handleFacebookSignUp = async () => {
+    setLoading(true);
+    const { error } = await signInWithFacebook();
+    setLoading(false);
+
+    if (error) {
+      Alert.alert('Facebook Sign-Up Failed', error.message);
     }
   };
 
@@ -544,6 +491,30 @@ export default function SignupScreen() {
             autoCapitalize="none"
           />
         </View>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or continue with</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <View style={styles.socialContainer}>
+          <TouchableOpacity 
+            style={[styles.socialButton, styles.googleButton]} 
+            onPress={handleGoogleSignUp}
+            disabled={loading}
+          >
+            <Text style={styles.socialButtonText}>Google</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.socialButton, styles.facebookButton]} 
+            onPress={handleFacebookSignUp}
+            disabled={loading}
+          >
+            <Text style={styles.socialButtonText}>Facebook</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Animated.View>
   );
@@ -564,7 +535,7 @@ export default function SignupScreen() {
   };
 
   return (
-    <LinearGradient colors={['#064E3B', '#10B981']} style={styles.container}>
+    <LinearGradient colors={[colors.primary, '#10B981']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -803,6 +774,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     marginBottom: 16,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  dividerText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginHorizontal: 16,
+  },
+  socialContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  socialButton: {
+    flex: 1,
+    borderRadius: 12,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+  },
+  facebookButton: {
+    backgroundColor: '#1877F2',
+  },
+  socialButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
   },
   buttonContainer: {
     flexDirection: 'row',

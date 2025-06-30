@@ -57,12 +57,19 @@ export interface HealthData {
   sleep: number;
   activeMinutes: number;
   distance: number;
+  weight: number;
+  bloodPressure: {
+    systolic: number;
+    diastolic: number;
+  };
   lastUpdated?: string;
   HealthGoals: {
     entries: string;
     steps: number;
     calories: number;
     activeMinutes: number;
+    sleep: number;
+    weight: number;
   }
 }
 
@@ -71,6 +78,7 @@ export interface HealthGoals {
   calories: number;
   activeMinutes: number;
   sleepHours: number;
+  weight: number;
 }
 
 export interface UserPreferences {
@@ -158,11 +166,18 @@ const defaultHealthData: HealthData = {
   sleep: 0,
   activeMinutes: 0,
   distance: 0,
+  weight: 0,
+  bloodPressure: {
+    systolic: 0,
+    diastolic: 0,
+  },
   HealthGoals: {
     entries: 'none',
     steps: 10000,
     calories: 2000,
     activeMinutes: 60,
+    sleep: 8,
+    weight: 70,
   },
 };
 
@@ -672,12 +687,19 @@ export const useUserStore = create<UserStore>()(
                 sleep: data.sleep || 0,
                 activeMinutes: data.active_minutes || 0,
                 distance: data.distance || 0,
+                weight: data.weight || 0,
+                bloodPressure: {
+                  systolic: data.blood_pressure_systolic || 0,
+                  diastolic: data.blood_pressure_diastolic || 0,
+                },
                 lastUpdated: data.updated_at,
                 HealthGoals: {
                   entries: data.health_goals_entries || 'none',
                   steps: data.health_goals_steps || 10000,
                   calories: data.health_goals_calories || 2000,
                   activeMinutes: data.health_goals_active_minutes || 60,
+                  sleep: data.health_goals_sleep || 8,
+                  weight: data.health_goals_weight || 70,
                 },
               },
               isLoadingHealthData: false,

@@ -1,7 +1,7 @@
 import { Drawer } from 'expo-router/drawer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, StyleSheet } from 'react-native';
-import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart } from 'lucide-react-native';
+import { MessageCircle, Chrome as Home, User, CircleAlert as AlertCircle, Pill, TrendingUp, Apple, Heart, Activity } from 'lucide-react-native';
 import { useThemeColors } from '@/stores/useThemeStore';
 
 export default function TabLayout() {
@@ -54,6 +54,13 @@ export default function TabLayout() {
           options={{ 
             title: 'SymSense Chat',
             drawerIcon: ({ color }) => <MessageCircle color={color} size={24} />
+          }} 
+        />
+        <Drawer.Screen 
+          name="health" 
+          options={{ 
+            title: 'Health Metrics',
+            drawerIcon: ({ color }) => <Activity color={color} size={24} />
           }} 
         />
         <Drawer.Screen 

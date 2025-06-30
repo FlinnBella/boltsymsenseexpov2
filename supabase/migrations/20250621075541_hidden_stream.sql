@@ -49,11 +49,10 @@ CREATE TABLE IF NOT EXISTS food_logs (
 
 -- Create user_preferences table
 CREATE TABLE IF NOT EXISTS user_preferences (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+  user_id uuid PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+
   wearable_connected boolean DEFAULT false,
   wearable_prompt_dismissed boolean DEFAULT false,
-  dashboard_layout jsonb DEFAULT '["steps", "heartRate", "calories", "sleep"]'::jsonb,
   notification_preferences jsonb DEFAULT '{"achievements": true, "healthAlerts": true, "medications": true, "appointments": true}'::jsonb,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()

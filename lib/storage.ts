@@ -1,13 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface UserPreferences {
-  dashboardLayout: string[];
-  healthGoals: {
-    steps: number;
-    calories: number;
-    activeMinutes: number;
-    sleepHours: number;
-  };
+  wearableConnected: boolean;
+  wearablePromptDismissed: boolean;
+  dashboard_layout: string;
   notifications: {
     achievements: boolean;
     healthAlerts: boolean;
@@ -17,13 +13,9 @@ export interface UserPreferences {
 }
 
 export const defaultPreferences: UserPreferences = {
-  dashboardLayout: ['steps', 'heartRate', 'calories', 'sleep'],
-  healthGoals: {
-    steps: 10000,
-    calories: 2000,
-    activeMinutes: 30,
-    sleepHours: 8,
-  },
+  wearableConnected: false,
+  wearablePromptDismissed: false,
+  dashboard_layout: 'default',
   notifications: {
     achievements: true,
     healthAlerts: true,
@@ -31,6 +23,20 @@ export const defaultPreferences: UserPreferences = {
     appointments: true,
   },
 };
+
+export interface HealthLocalData {
+  healthGoals: {
+    steps: number;
+    calories: number;
+  };
+  healthData: {
+    steps: number;
+    calories: number;
+    distance: number;
+    active_minutes: number;
+  sleep: number;
+};
+}
 
 export async function saveUserPreferences(preferences: UserPreferences) {
   try {
@@ -58,23 +64,23 @@ export async function clearUserPreferences(): Promise<void> {
   }
 }
 
-export async function saveHealthData(data: any) {
+export async function saveHealthData(data: HealthLocalData) {
   try {
-    const existing = await AsyncStorage.getItem('healthData');
-    const healthData = existing ? JSON.parse(existing) : [];
-    healthData.push({ ...data, timestamp: new Date().toISOString() });
-    await AsyncStorage.setItem('healthData', JSON.stringify(healthData));
+    const existing = await AsyncStorage.getItem('healthLocalData');
+    const healthLocalData = existing ? JSON.parse(existing) : [];
+    healthLocalData.push({ ...data, timestamp: new Date().toISOString() });
+    await AsyncStorage.setItem('healthLocalData', JSON.stringify(healthLocalData));
   } catch (error) {
     console.error('Error saving health data:', error);
   }
 }
 
-export async function getHealthData() {
+export async function getHealthLocalData() {
   try {
-    const stored = await AsyncStorage.getItem('healthData');
+    const stored = await AsyncStorage.getItem('healthLocalData');
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.error('Error loading health data:', error);
+    console.error('Error loading health local data:', error);
     return [];
   }
 }

@@ -1,0 +1,14 @@
+{
+  "cli": {
+    "version": ">= 16.7.0",
+    "appVersionSource": "remote",
+    "requireCommit": true
+  },
+    "build": {
+      "development": {
+        "ios": {
+          "simulator": true
+        }
+      }
+    }
+}

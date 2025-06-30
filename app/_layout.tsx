@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { router, Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
@@ -18,23 +18,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Platform } from 'react-native';
-
-import  AuthProvider  from '@/app/contexts/AuthContext';
-import  UserProvider  from '@/app/contexts/UserContext';
-
+import { initializeOAuth } from '@/lib/oauth';
+import AuthGuard from '@/components/AuthGuard';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  // this is to prevent navigation until app is ready 
-  setTimeout(() => {
-  }, 1);
-
-
   useFrameworkReady();
-  //const router = useRouter();
-  //const segments = useSegments();
 
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Regular': Inter_400Regular,
@@ -55,26 +45,23 @@ export default function RootLayout() {
 
   useEffect(() => {
     registerForPushNotificationsAsync();
+    initializeOAuth();
   }, []);
 
-
-
-  if (!fontsLoaded ? !fontError : null) {
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
-    <AuthProvider>
-      <UserProvider>
-      <SafeAreaProvider>
+    <SafeAreaProvider>
+      <AuthGuard>
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
         <StatusBar style="auto" />
-      </SafeAreaProvider>
-      </UserProvider>
-    </AuthProvider>
+      </AuthGuard>
+    </SafeAreaProvider>
   );
 }

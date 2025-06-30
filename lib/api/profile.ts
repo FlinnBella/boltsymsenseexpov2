@@ -177,13 +177,11 @@ export async function logMedication(userId: string, medicationName: string, dosa
 
 export async function getUserPreferencesFromDB(userId: string): Promise<UserPreferences> {
   const { data, error } = await supabase
-    .from('users')
+    .from('users_preferences')
     .select(`
       dashboard_layout,
-      health_goal_steps,
-      health_goal_calories,
-      health_goal_active_minutes,
-      health_goal_sleep_hours,
+      wearable_connected,
+      wearable_prompt_dismissed,
       notification_achievements,
       notification_health_alerts,
       notification_medications,
@@ -203,19 +201,15 @@ export async function getUserPreferencesFromDB(userId: string): Promise<UserPref
 
   // Convert DB format to app format
   return {
-    dashboardLayout: data.dashboard_layout || defaultPreferences.dashboardLayout,
-    healthGoals: {
-      steps: data.health_goal_steps || defaultPreferences.healthGoals.steps,
-      calories: data.health_goal_calories || defaultPreferences.healthGoals.calories,
-      activeMinutes: data.health_goal_active_minutes || defaultPreferences.healthGoals.activeMinutes,
-      sleepHours: data.health_goal_sleep_hours || defaultPreferences.healthGoals.sleepHours
-    },
+    dashboard_layout: data.dashboard_layout ?? defaultPreferences.dashboard_layout,
+    wearableConnected: data.wearable_connected ?? defaultPreferences.wearableConnected,
+    wearablePromptDismissed: data.wearable_prompt_dismissed ?? defaultPreferences.wearablePromptDismissed,
     notifications: {
       achievements: data.notification_achievements ?? defaultPreferences.notifications.achievements,
       healthAlerts: data.notification_health_alerts ?? defaultPreferences.notifications.healthAlerts,
       medications: data.notification_medications ?? defaultPreferences.notifications.medications,
       appointments: data.notification_appointments ?? defaultPreferences.notifications.appointments
-    }
+    },
   };
 }
 
@@ -223,11 +217,6 @@ export async function updateUserPreferencesInDB(userId: string, preferences: Use
   const { error } = await supabase
     .from('users')
     .update({
-      dashboard_layout: preferences.dashboardLayout,
-      health_goal_steps: preferences.healthGoals.steps,
-      health_goal_calories: preferences.healthGoals.calories,
-      health_goal_active_minutes: preferences.healthGoals.activeMinutes,
-      health_goal_sleep_hours: preferences.healthGoals.sleepHours,
       notification_achievements: preferences.notifications.achievements,
       notification_health_alerts: preferences.notifications.healthAlerts,
       notification_medications: preferences.notifications.medications,

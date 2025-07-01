@@ -11,7 +11,7 @@ buildscript {
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
 
-    implementation files('lib/libausbc-3.3.3.aar')
+
   }
 }
 

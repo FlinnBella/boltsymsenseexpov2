@@ -158,11 +158,7 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
-    implementation (name: 'libausbc-3.3.3', ext: 'aar')
-    implementation (name: 'libuvc-3.3.3', ext: 'aar')
-    implementation (name: 'libuvccommon-3.3.3', ext: 'aar')
-    implementation (name: 'libnative-3.3.3', ext: 'aar')
-    implementation (name: 'libutils-3.3.3', ext: 'aar')
+    implementation("com.github.chenyeju295.AndroidUSBCamera:libausbc:3.3.6")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

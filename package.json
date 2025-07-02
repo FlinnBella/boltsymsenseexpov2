@@ -70,6 +70,11 @@
     "zod": "^3.25.64",
     "zustand": "^5.0.5"
   },
+  "expo": {
+    "prebuild": {
+      "skip": true
+    }
+  },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",

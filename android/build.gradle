@@ -34,7 +34,7 @@ allprojects {
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
     flatDir {
-        dirs 'libs'
+        dirs project(':app').file('libs') //
     }
   }
 }

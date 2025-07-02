@@ -147,24 +147,9 @@ android {
     }
 }
 
-repositories {
-    flatDir {
-        dirs 'libs'
-    }
-}
-
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation(name: 'libnative-3.3.3', ext: 'aar')
-    implementation(name: 'libausbc-3.3.3', ext: 'aar') {
-    exclude group: 'com.github.jiangdongguo.AndroidUSBCamera', module: 'libuvc'
-    exclude group: 'com.github.jiangdongguo.AndroidUSBCamera', module: 'libuvccommon'
-    }
-    implementation(name: 'libuvc-3.3.3', ext: 'aar') {
-    exclude group: 'com.github.jiangdongguo.AndroidUSBCamera', module: 'libuvccommon'
-    }
-    implementation(name: 'libuvccommon-3.3.3', ext: 'aar') 
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
@@ -192,6 +177,4 @@ dependencies {
 }
 
 apply plugin: 'com.google.gms.google-services'
-android.packagingOptions.jniLibs.useLegacyPackaging = true
-
 android.packagingOptions.jniLibs.useLegacyPackaging = true

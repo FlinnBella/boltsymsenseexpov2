@@ -1,35 +1,18 @@
 diff --git a/node_modules/@daily-co/react-native-webrtc/android/build.gradle b/node_modules/@daily-co/react-native-webrtc/android/build.gradle
-index 82479cf..1734374 100644
+index 82479cf..8673a77 100644
 --- a/node_modules/@daily-co/react-native-webrtc/android/build.gradle
 +++ b/node_modules/@daily-co/react-native-webrtc/android/build.gradle
-@@ -28,8 +28,28 @@ android {
+@@ -28,8 +28,11 @@ android {
      }
  }
  
-+repositories {
-+    flatDir {
-+        dirs 'libs'
-+    }
-+}
++
 +
  dependencies {
      implementation 'com.facebook.react:react-native:+'
 -    implementation 'com.github.jiangdongguo.AndroidUSBCamera:libausbc:3.3.3'
-+    implementation (name: 'libausbc-3.3.3', ext: 'aar'){
-+        transitive = false
-+    }
-+    implementation (name: 'libuvc-3.3.3', ext: 'aar'){
-+        transitive = false
-+    }
-+    implementation (name: 'libuvccommon-3.3.3', ext: 'aar'){
-+        transitive = false
-+    }
-+    implementation (name: 'libnative-3.3.3', ext: 'aar'){
-+        transitive = false
-+    }
-+    implementation (name: 'libutils-3.3.3', ext: 'aar'){
-+        transitive = false
-+    }
++    implementation("com.github.chenyeju295.AndroidUSBCamera:libausbc:3.3.6")
++
      api 'org.jitsi:webrtc:118.+'
  }
 diff --git a/node_modules/@daily-co/react-native-webrtc/android/libs/libausbc-3.3.3.aar b/node_modules/@daily-co/react-native-webrtc/android/libs/libausbc-3.3.3.aar

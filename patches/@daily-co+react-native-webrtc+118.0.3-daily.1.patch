@@ -34,21 +34,16 @@ index 82479cf..1734374 100644
  }
 diff --git a/node_modules/@daily-co/react-native-webrtc/android/libs/libausbc-3.3.3.aar b/node_modules/@daily-co/react-native-webrtc/android/libs/libausbc-3.3.3.aar
 new file mode 100644
-index 0000000..5908a6e
-Binary files /dev/null and b/node_modules/@daily-co/react-native-webrtc/android/libs/libausbc-3.3.3.aar differ
+index 0000000..e69de29
 diff --git a/node_modules/@daily-co/react-native-webrtc/android/libs/libnative-3.3.3.aar b/node_modules/@daily-co/react-native-webrtc/android/libs/libnative-3.3.3.aar
 new file mode 100644
-index 0000000..26e35d9
-Binary files /dev/null and b/node_modules/@daily-co/react-native-webrtc/android/libs/libnative-3.3.3.aar differ
+index 0000000..e69de29
 diff --git a/node_modules/@daily-co/react-native-webrtc/android/libs/libutils-3.3.3.aar b/node_modules/@daily-co/react-native-webrtc/android/libs/libutils-3.3.3.aar
 new file mode 100644
-index 0000000..336fffb
-Binary files /dev/null and b/node_modules/@daily-co/react-native-webrtc/android/libs/libutils-3.3.3.aar differ
+index 0000000..e69de29
 diff --git a/node_modules/@daily-co/react-native-webrtc/android/libs/libuvc-3.3.3.aar b/node_modules/@daily-co/react-native-webrtc/android/libs/libuvc-3.3.3.aar
 new file mode 100644
-index 0000000..d66b0fb
-Binary files /dev/null and b/node_modules/@daily-co/react-native-webrtc/android/libs/libuvc-3.3.3.aar differ
+index 0000000..e69de29
 diff --git a/node_modules/@daily-co/react-native-webrtc/android/libs/libuvccommon-3.3.3.aar b/node_modules/@daily-co/react-native-webrtc/android/libs/libuvccommon-3.3.3.aar
 new file mode 100644
-index 0000000..c0cb607
-Binary files /dev/null and b/node_modules/@daily-co/react-native-webrtc/android/libs/libuvccommon-3.3.3.aar differ
+index 0000000..e69de29

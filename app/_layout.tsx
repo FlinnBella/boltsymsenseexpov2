@@ -21,6 +21,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeOAuth } from '@/lib/oauth';
 import AuthGuard from '@/components/AuthGuard';
 
+//Necessary import to use the development build (on the eas cloud)
+import 'expo-dev-client';
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {

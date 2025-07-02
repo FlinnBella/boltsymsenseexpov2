@@ -11,10 +11,11 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Dog, User, Loader, Plus } from 'lucide-react-native';
+import { Send, Dog, User, Loader, Plus, Play } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
+import { router } from 'expo-router';
 
 // Webhook URL for AI communication
 const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
@@ -60,6 +61,11 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
     </Text>
   </Animated.View>
 ));
+
+//Tavi Chat push module
+const TaviChat = () => {
+  router.push('/TaviChat');
+};
 
 // Initial chat placeholder component
 const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: () => void; colors: any }) => {
@@ -290,16 +296,24 @@ export default function AIScreen() {
               maxLength={500}
               editable={!isLoading}
             />
+            <View style={styles.buttonsContainer}>
+            <TouchableOpacity
+              style={[styles.sendButton, { backgroundColor: 'white' }]}
+              onPress={TaviChat}
+            >
+              <Play color="black" size={18} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                { backgroundColor: (!inputText.trim() || isLoading) ? colors.textSecondary : colors.primary }
+                { backgroundColor: (!inputText.trim() || isLoading) ? 'white' :  colors.textSecondary }
               ]}
               onPress={sendMessage}
               disabled={!inputText.trim() || isLoading}
             >
-              <Send color="white" size={18} />
+              <Send color="black" size={18} />
             </TouchableOpacity>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -456,6 +470,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'black',
   },
   disclaimer: {
     paddingHorizontal: 20,
@@ -467,5 +483,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    gap: 4,
   },
 });

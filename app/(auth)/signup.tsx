@@ -359,7 +359,7 @@ export default function SignupScreen() {
 
   const renderStep2 = () => (
     <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>What autoimmune diseases do you have to get started with?</Text>
+      <Text style={styles.stepTitle}>What autoimmune diseases do you need help with?</Text>
       <Text style={styles.stepSubtitle}>Select any that apply to you</Text>
 
       <View style={styles.diseasesContainer}>
@@ -492,7 +492,7 @@ export default function SignupScreen() {
           />
         </View>
 
-        <View style={styles.divider}>
+        {/*<View style={styles.divider}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>or continue with</Text>
           <View style={styles.dividerLine} />
@@ -514,7 +514,7 @@ export default function SignupScreen() {
           >
             <Text style={styles.socialButtonText}>Facebook</Text>
           </TouchableOpacity>
-        </View>
+        </View>*/}
       </View>
     </Animated.View>
   );
@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   diseaseBubble: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,

@@ -6,6 +6,8 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useUserStore } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
+import FacebookTile from '../../assets/images/facebook-icon.svg';
+import Google from '../../assets/images/google.svg';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -116,19 +118,21 @@ export default function LoginScreen() {
 
             <View style={styles.socialContainer}>
               <TouchableOpacity 
-                style={[styles.socialButton, styles.googleButton]} 
+                style={[styles.socialButton, styles.googleButton, true ? styles.socialButtonDisabled : null]} 
                 onPress={handleGoogleSignIn}
-                disabled={loading}
+                disabled={true}
               >
-                <Text style={styles.socialButtonText}>Google</Text>
+                <Text style={styles.socialButtonText}>Sign in with Google</Text>
+                <Google width={20} height={20}/>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.socialButton, styles.facebookButton]} 
+                style={[styles.socialButton, styles.facebookButton, true ? styles.socialButtonDisabled : null]} 
                 onPress={handleFacebookSignIn}
-                disabled={loading}
+                disabled={true}
               >
-                <Text style={styles.socialButtonText}>Facebook</Text>
+                <Text style={styles.socialButtonText}>Sign in with Facebook</Text>
+                <FacebookTile width={20} height={20}/>
               </TouchableOpacity>
             </View>
 
@@ -233,27 +237,34 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   socialContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 12,
+    height: 120,
   },
   socialButton: {
     flex: 1,
-    borderRadius: 12,
-    height: 56,
+    borderRadius: 48,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
+    gap: 12,
   },
   googleButton: {
-    backgroundColor: '#4285F4',
+    backgroundColor: 'rgba(201, 37, 37, 0.93)',
+
   },
   facebookButton: {
-    backgroundColor: '#1877F2',
+    backgroundColor: 'rgba(21, 128, 201, 0.93)',
+ 
+  },
+  socialButtonDisabled: {
+    opacity: 0.5,
   },
   socialButtonText: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    color: 'white',
+    color: 'rgb(215, 202, 202)',
   },
   linkButton: {
     alignItems: 'center',

@@ -9,6 +9,7 @@ import Animated, {
   withTiming, 
   withRepeat 
 } from 'react-native-reanimated';
+import { useThemeColors } from '@/stores/useThemeStore';
 
 interface LoadingScreenProps {
   visible: boolean;
@@ -16,6 +17,7 @@ interface LoadingScreenProps {
 
 export default function LoadingScreen({ visible }: LoadingScreenProps) {
   const progress = useSharedValue(0);
+  const colors = useThemeColors();
 
   useEffect(() => {
     if (visible) {
@@ -37,7 +39,7 @@ export default function LoadingScreen({ visible }: LoadingScreenProps) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.gradient}>
+      <LinearGradient colors={[colors.primary, '#10B981']} style={styles.gradient}>
         <Animated.View 
           entering={FadeInDown.duration(600)} 
           exiting={FadeOutDown.duration(400)}

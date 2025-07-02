@@ -85,7 +85,10 @@ android {
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk rootProject.ext.compileSdkVersion
+    ext {
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+    }
 
     namespace 'com.symsense.app'
     defaultConfig {

@@ -29,11 +29,12 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
     ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
   }
 }
+
+include ':app'
+apply from: new File(["node", "--print", "require.resolve('expo/scripts/autolinking.android.js')"].execute(null, rootDir).text.trim())
 expoAutolinking.useExpoModules()
 
 rootProject.name = 'SymSense'
 
 expoAutolinking.useExpoVersionCatalog()
-
-include ':app'
 includeBuild(expoAutolinking.reactNativeGradlePlugin)

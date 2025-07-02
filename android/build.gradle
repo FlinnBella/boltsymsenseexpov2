@@ -4,6 +4,7 @@ buildscript {
   repositories {
     google()
     mavenCentral()
+    
   }
   dependencies {
         classpath 'com.google.gms:google-services:4.4.1'
@@ -32,6 +33,9 @@ allprojects {
     jcenter()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
+    flatDir {
+        dirs 'libs'
+    }
   }
 }
 

@@ -1,0 +1,23 @@
+diff --git a/node_modules/expo-random/android/build.gradle b/node_modules/expo-random/android/build.gradle
+index ede1c7e..b7f02ff 100644
+--- a/node_modules/expo-random/android/build.gradle
++++ b/node_modules/expo-random/android/build.gradle
+@@ -59,13 +59,15 @@ if (!safeExtGet("expoProvidesDefaultConfig", false)) {
+ }
+ 
+ android {
++  compileSdkVersion safeExtGet("compileSdkVersion", 35)
++
+   // Remove this if and it's contents, when support for SDK49 is dropped
+   if (!safeExtGet("expoProvidesDefaultConfig", false)) {
+-    compileSdkVersion safeExtGet("compileSdkVersion", 34)
++    compileSdkVersion safeExtGet("compileSdkVersion", 35)
+ 
+     defaultConfig {
+-      minSdkVersion safeExtGet("minSdkVersion", 23)
+-      targetSdkVersion safeExtGet("targetSdkVersion", 34)
++      minSdkVersion safeExtGet("minSdkVersion", 24)
++      targetSdkVersion safeExtGet("targetSdkVersion", 35)
+     }
+ 
+     publishing {

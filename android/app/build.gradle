@@ -83,12 +83,7 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
-
-    buildToolsVersion rootProject.ext.buildToolsVersion
-    ext {
-        compileSdkVersion = 35
-        targetSdkVersion = 35
-    }
+    compileSdkVersion rootProject.ext.compileSdkVersion
 
     namespace 'com.symsense.app'
     defaultConfig {
@@ -99,6 +94,8 @@ android {
         versionName "1.0.0"
         missingDimensionStrategy 'react-native-camera', 'general'
     }
+    buildToolsVersion rootProject.ext.buildToolsVersion
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

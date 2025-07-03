@@ -29,8 +29,8 @@ const TaviChat = ({
   visible,
   onClose,
   apiKey = 'c2744af3a2c248eeac535b51939a04db',
-  replicaId = 'r4c41453d2',
-  personaId = 'pb1b8de56155',
+  replicaId = 'r6ae5b6efc9d',
+  personaId = 'p58cee6131cc',
 }: TaviChatProps) => {
   const colors = useThemeColors();
   const [callObject, setCallObject] = useState<any>(null);

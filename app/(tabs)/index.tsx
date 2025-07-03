@@ -16,6 +16,7 @@ import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reani
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
 import { router } from 'expo-router';
+import TaviChat from './TaviChat';
 
 // Webhook URL for AI communication
 const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
@@ -62,10 +63,6 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
   </Animated.View>
 ));
 
-//Tavi Chat push module
-const TaviChat = () => {
-  router.push('/TaviChat');
-};
 
 // Initial chat placeholder component
 const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: () => void; colors: any }) => {
@@ -104,6 +101,7 @@ export default function AIScreen() {
   const symptoms = useSymptoms();
   const foodLogs = useFoodLogs();
   const colors = useThemeColors();
+  const [isTaviModalVisible, setIsTaviModalVisible] = useState(false);
 
   useEffect(() => {
     scrollToBottom();
@@ -299,7 +297,7 @@ export default function AIScreen() {
             <View style={styles.buttonsContainer}>
             <TouchableOpacity
               style={[styles.sendButton, { backgroundColor: 'white' }]}
-              onPress={TaviChat}
+              onPress={() => setIsTaviModalVisible(true)}
             >
               <Play color="black" size={18} />
             </TouchableOpacity>
@@ -326,6 +324,15 @@ export default function AIScreen() {
           </Text>
         </View>
       )}
+      
+             {isTaviModalVisible && (
+         <View style={styles.taviOverlay}>
+           <TaviChat
+             visible={isTaviModalVisible}
+             onClose={() => setIsTaviModalVisible(false)}
+           />
+         </View>
+       )}
     </SafeAreaView>
   );
 }
@@ -490,5 +497,12 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     flexDirection: 'row',
     gap: 4,
+  },
+  taviOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
   },
 });

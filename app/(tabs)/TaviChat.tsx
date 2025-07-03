@@ -44,7 +44,7 @@ const VideoChatModal = ({
           replica_id: replicaId,
           persona_id: personaId,
           properties: {
-            max_call_duration: 3600,
+            max_call_duration: 60,
             participant_left_timeout: 60,
             enable_recording: false,
           },
@@ -56,6 +56,8 @@ const VideoChatModal = ({
       }
 
       const data = await response.json();
+      console.log(data);
+      console.log("data above!");
       return data.conversation_url;
     } catch (error) {
       console.error('Error creating Tavus conversation:', error);

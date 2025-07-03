@@ -169,7 +169,7 @@ export default function AIScreen() {
         const errorText = await response.text();
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
-
+      // TODO: FORMAT THE TEXT CLIENT SIDE HERE
       const data = await response.json();
       return data;
     } catch (error) {
@@ -306,7 +306,7 @@ export default function AIScreen() {
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                { backgroundColor: (!inputText.trim() || isLoading) ? 'white' :  colors.textSecondary }
+                { backgroundColor: 'white'  }
               ]}
               onPress={sendMessage}
               disabled={!inputText.trim() || isLoading}
@@ -319,11 +319,13 @@ export default function AIScreen() {
       </KeyboardAvoidingView>
 
       {/* Disclaimer */}
-      <View style={[styles.disclaimer, { backgroundColor: colors.warning + '20', borderTopColor: colors.warning }]}>
-        <Text style={[styles.disclaimerText, { color: colors.warning }]}>
-          This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
-        </Text>
-      </View>
+      {!showNewChatButton && (
+        <View style={[styles.disclaimer, { backgroundColor: 'transparent', borderTopColor: 'transparent' }]}>
+          <Text style={[styles.disclaimerText, { color: 'gray' }]}>
+            This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
+          </Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -483,6 +485,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
     lineHeight: 16,
+    color: 'gray',
   },
   buttonsContainer: {
     flexDirection: 'row',

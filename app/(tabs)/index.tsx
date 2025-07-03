@@ -63,7 +63,6 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
   </Animated.View>
 ));
 
-
 // Initial chat placeholder component
 const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: () => void; colors: any }) => {
   useEffect(() => {
@@ -325,14 +324,11 @@ export default function AIScreen() {
         </View>
       )}
       
-             {isTaviModalVisible && (
-         <View style={styles.taviOverlay}>
-           <TaviChat
-             visible={isTaviModalVisible}
-             onClose={() => setIsTaviModalVisible(false)}
-           />
-         </View>
-       )}
+      {/* Tavus Video Chat Modal */}
+      <TaviChat
+        visible={isTaviModalVisible}
+        onClose={() => setIsTaviModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -497,12 +493,5 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     flexDirection: 'row',
     gap: 4,
-  },
-  taviOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1000,
   },
 });

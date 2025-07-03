@@ -48,7 +48,7 @@ const TaviChat = ({
   const [pipPosition, setPipPosition] = useState({ x: screenWidth - 120, y: 100 });
 
   // Call duration timer
-  const durationInterval = useRef<NodeJS.Timeout>();
+  const durationInterval = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   // PanResponder for draggable PiP
   const panResponder = useRef(
@@ -56,8 +56,8 @@ const TaviChat = ({
       onMoveShouldSetPanResponder: () => isMinimized,
       onPanResponderGrant: () => {
         pan.setOffset({
-          x: pan.x._value,
-          y: pan.y._value,
+          x: 0,
+          y: 0,
         });
       },
       onPanResponderMove: Animated.event(
@@ -140,12 +140,10 @@ const TaviChat = ({
       startAudioOff: false,
       dailyConfig: {
         userMediaVideoConstraints: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
+          width: 640,
+          height: 480,
         },
         userMediaAudioConstraints: {
-          echoCancellation: true,
-          noiseSuppression: true,
         },
       },
     });

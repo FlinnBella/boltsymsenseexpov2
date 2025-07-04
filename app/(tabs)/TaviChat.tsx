@@ -44,6 +44,10 @@ const TaviChat = ({
   const [callDuration, setCallDuration] = useState(0);
   const [isDestroyed, setIsDestroyed] = useState(false);
 
+  // Audio track references
+  const audioTrackRef = useRef<MediaStreamTrack | null>(null);
+  const remoteAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+
   // Audio permissions state
   const [hasAudioPermission, setHasAudioPermission] = useState(false);
 
@@ -60,6 +64,7 @@ const TaviChat = ({
   // Request audio permissions
   const requestAudioPermissions = useCallback(async () => {
     try {
+      console.log('Requesting audio permissions...');
       if (Platform.OS === 'android') {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
@@ -73,6 +78,7 @@ const TaviChat = ({
         );
         
         const hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        console.log('Android audio permission granted:', hasPermission);
         setHasAudioPermission(hasPermission);
         return hasPermission;
       } else {
@@ -126,6 +132,7 @@ const TaviChat = ({
   // Create Tavus conversation
   const createTavusConversation = useCallback(async () => {
     try {
+      console.log('Creating Tavus conversation with API key:', apiKey);
       setConnectionError(null);
       
       const response = await fetch('https://tavusapi.com/v2/conversations', {
@@ -136,14 +143,17 @@ const TaviChat = ({
         },
         body: JSON.stringify({
           replica_id: replicaId,
-          persona_id: personaId,
+          persona_id: personaId, 
           conversational_context: "You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance.",
           custom_greeting: "Hello! I'm Anna, your nurse assistant. How can I help you today?",
-          enable_audio: true,
+          enable_audio: true, // Explicitly enable audio
           properties: {
-            max_call_duration: 60, // 60 seconds max
+            max_call_duration: 300, // 5 minutes max for testing
             participant_left_timeout: 60,
             participant_absent_timeout: 300,
+            enable_audio: true, // Redundant but explicit
+            audio_only: true, // Force audio-only mode
+            enable_video: false, // Disable video
             enable_recording: false,
             language: "english"
           },
@@ -151,6 +161,8 @@ const TaviChat = ({
             input_enabled: true,
             output_enabled: true,
           },
+          conversation_name: "Anna Nurse Chat",
+          conversation_type: "audio"
         }),
       });
 
@@ -161,6 +173,7 @@ const TaviChat = ({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      console.log('Tavus API response status:', response.status);
       const data = await response.json();
       console.log('Tavus conversation created:', data);
       return data.conversation_url;
@@ -181,6 +194,8 @@ const TaviChat = ({
   // Initialize call
   const initializeCall = useCallback(() => {
     if (callObject && !isDestroyed) return callObject;
+    
+    console.log('Initializing new Daily call object');
 
     const options: DailyFactoryOptions = {
       audioSource: true,
@@ -188,12 +203,21 @@ const TaviChat = ({
       subscribeToTracksAutomatically: true,
       enableAudio: true,
       enableVideo: false,
+      dailyConfig: {
+        experimentalChromeVideoMuteLightOff: true,
+        camSimulcastEncodings: false,
+        avoidEval: true,
+      }
     };
 
     const newCallObject = Daily.createCallObject(options);
     
     // Set audio constraints
-    newCallObject.setAudioDevice({ deviceId: 'default' });
+    try {
+      newCallObject.setAudioDevice({ deviceId: 'default' });
+    } catch (error) {
+      console.error('Error setting audio device:', error);
+    }
     
     setCallObject(newCallObject);
     setIsDestroyed(false);
@@ -203,11 +227,19 @@ const TaviChat = ({
   // Event handlers
   const handleJoinedMeeting = useCallback((event: any) => {
     console.log('Joined meeting:', event);
+    console.log('Local participant:', event.participants.local);
+    
     setIsConnected(true);
     
     // Ensure audio is enabled after joining
     if (callObject && !isDestroyed) {
-      callObject.setLocalAudio(true);
+      try {
+        callObject.setLocalAudio(true);
+        setAudioEnabled(true);
+        console.log('Local audio enabled after joining');
+      } catch (error) {
+        console.error('Error enabling local audio after joining:', error);
+      }
     }
     
     setIsLoading(false);
@@ -222,7 +254,13 @@ const TaviChat = ({
   const handleParticipantJoined = useCallback((event: any) => {
     console.log('Participant joined event:', JSON.stringify(event, null, 2));
     console.log('Participant audio track:', event.participant.tracks?.audio);
-    console.log('Participant video track:', event.participant.tracks?.video);
+    
+    // Log detailed audio track information
+    if (event.participant.tracks?.audio) {
+      console.log('Audio track state:', event.participant.tracks.audio.state);
+      console.log('Audio track subscribed:', event.participant.tracks.audio.subscribed);
+      console.log('Audio track enabled:', event.participant.tracks.audio?.track?.enabled);
+    }
     
     setParticipants((prev: any) => {
       const updated = {
@@ -233,13 +271,20 @@ const TaviChat = ({
     });
     
     // Enable audio for the participant
-    if (callObject && !isDestroyed && event.participant.tracks?.audio) {
+    if (callObject && !isDestroyed) {
       try {
-        callObject.updateParticipant(event.participant.session_id, {
-          setAudio: true,
-        });
+        // Ensure we're subscribed to the participant's audio
+        if (!event.participant.local) {
+          callObject.updateParticipant(event.participant.session_id, {
+            setSubscribedTracks: {
+              audio: true,
+              video: false,
+            },
+          });
+          console.log('Subscribed to participant audio:', event.participant.session_id);
+        }
       } catch (error) {
-        console.error('Error enabling participant audio:', error);
+        console.error('Error subscribing to participant audio:', error);
       }
     }
   }, []);
@@ -276,10 +321,29 @@ const TaviChat = ({
   // Enhanced track started handler
   const handleTrackStarted = useCallback((event: any) => {
     console.log('Track started:', event);
-    console.log('Track type:', event.track?.kind);
-    console.log('Track state:', event.track?.readyState);
-    console.log('Track enabled:', event.track?.enabled);
-    console.log('Participant session ID:', event.participant?.session_id);
+    
+    // Detailed track logging
+    const { participant, track } = event;
+    console.log(`Track started - Type: ${track?.kind}, State: ${track?.readyState}, Enabled: ${track?.enabled}`);
+    console.log(`Participant: ${participant?.session_id}, Local: ${participant?.local}`);
+    
+    if (track?.kind === 'audio') {
+      console.log('Audio track details:', {
+        id: track.id,
+        muted: track.muted,
+        enabled: track.enabled,
+        readyState: track.readyState,
+      });
+      
+      // Store audio track references
+      if (participant.local) {
+        audioTrackRef.current = track;
+        console.log('Stored local audio track reference');
+      } else {
+        remoteAudioTrackRef.current = track;
+        console.log('Stored remote audio track reference');
+      }
+    }
     
     const { participant, track } = event;
     
@@ -306,18 +370,25 @@ const TaviChat = ({
     // If this is an audio track, ensure it's properly configured
     if (track.kind === 'audio') {
       console.log('Audio track started, configuring...');
+      
       try {
-        // Ensure the track is enabled and not muted
-        track.enabled = true;
+        // Make sure the track is enabled
+        if (!track.enabled) {
+          track.enabled = true;
+          console.log('Enabled audio track');
+        }
         
         // For remote participants, ensure we're subscribed to their audio
         if (!participant.local && callObject && !isDestroyed) {
-          callObject.updateParticipant(participant.session_id, {
-            setSubscribedTracks: {
-              audio: true,
-              video: false,
-            },
-          });
+          try {
+            callObject.updateParticipant(participant.session_id, {
+              setSubscribedTracks: { audio: true, video: false },
+              setAudio: true,
+            });
+            console.log('Updated remote participant audio subscription');
+          } catch (subError) {
+            console.error('Error updating participant subscription:', subError);
+          }
         }
       } catch (error) {
         console.error('Error configuring audio track:', error);
@@ -328,6 +399,19 @@ const TaviChat = ({
   // Add track stopped handler
   const handleTrackStopped = useCallback((event: any) => {
     console.log('Track stopped:', event);
+    
+    const { track, participant } = event;
+    
+    // Clear track references if they match the stopped track
+    if (track.kind === 'audio') {
+      if (participant.local && audioTrackRef.current?.id === track.id) {
+        console.log('Clearing local audio track reference');
+        audioTrackRef.current = null;
+      } else if (!participant.local && remoteAudioTrackRef.current?.id === track.id) {
+        console.log('Clearing remote audio track reference');
+        remoteAudioTrackRef.current = null;
+      }
+    }
   }, []);
 
   // Join call function
@@ -335,6 +419,7 @@ const TaviChat = ({
     if (isLoading || isConnected) return;
     
     // Check audio permissions first
+    console.log('Checking audio permissions before joining call');
     if (!hasAudioPermission) {
       const granted = await requestAudioPermissions();
       if (!granted) {
@@ -348,6 +433,7 @@ const TaviChat = ({
 
     try {
       // Create Tavus conversation for the AI avatar
+      console.log('Creating Tavus conversation...');
       const tavusUrl = await createTavusConversation();
       if (!tavusUrl) {
         setIsLoading(false);
@@ -355,14 +441,19 @@ const TaviChat = ({
       }
       setConversationUrl(tavusUrl);
 
+      console.log('Tavus conversation URL:', tavusUrl);
       const call = initializeCall();
       
       // Configure audio settings before joining
       try {
+        console.log('Setting up local audio before joining...');
         await call.setLocalAudio(true);
         await call.setLocalVideo(false);
+        setAudioEnabled(true);
+        console.log('Local audio enabled before joining');
       } catch (error) {
         console.error('Error setting local media:', error);
+        // Continue anyway, as this might not be fatal
       }
       
       await call.join({ url: tavusUrl });
@@ -377,10 +468,20 @@ const TaviChat = ({
   // Leave call function
   const leaveCall = useCallback(async () => {
     if (callObject && isConnected && !isDestroyed) {
+      console.log('Leaving call and cleaning up...');
       try {
+        // Disable audio before leaving
+        try {
+          await callObject.setLocalAudio(false);
+          setAudioEnabled(false);
+        } catch (audioError) {
+          console.error('Error disabling audio before leaving:', audioError);
+        }
+        
         await callObject.leave();
         await callObject.destroy();
         setIsDestroyed(true);
+        console.log('Call object destroyed successfully');
       } catch (error) {
         console.error('Error leaving call:', error);
       }
@@ -404,6 +505,7 @@ const TaviChat = ({
     if (!callObject || isDestroyed) return;
 
     try {
+      console.log('Toggling audio state...');
       const newAudioState = !audioEnabled;
       await callObject.setLocalAudio(newAudioState);
       setAudioEnabled(newAudioState);
@@ -419,6 +521,8 @@ const TaviChat = ({
   // Setup event listeners
   useEffect(() => {
     if (!callObject || isDestroyed) return;
+    
+    console.log('Setting up Daily.js event listeners');
 
     const eventHandlers = {
       'joined-meeting': handleJoinedMeeting,
@@ -427,6 +531,7 @@ const TaviChat = ({
       'left-meeting': handleCallEnded,
       'track-started': handleTrackStarted,
       'track-stopped': handleTrackStopped,
+      'active-speaker-change': (event: any) => console.log('Active speaker changed:', event),
       error: handleError,
     };
 
@@ -456,10 +561,21 @@ const TaviChat = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('Component unmounting, cleaning up resources');
       if (callObject && !isDestroyed) {
         try {
+          // First disable audio to prevent any lingering audio issues
+          try {
+            callObject.setLocalAudio(false);
+          } catch (audioError) {
+            console.log('Error disabling audio during cleanup:', audioError);
+          }
+          
+          // Then leave and destroy
+          callObject.leave().catch(e => console.log('Error leaving call during cleanup:', e));
           callObject.destroy();
           setIsDestroyed(true);
+          console.log('Call object destroyed during cleanup');
         } catch (error) {
           console.error('Error destroying call object:', error);
         }
@@ -468,6 +584,7 @@ const TaviChat = ({
         clearInterval(durationInterval.current);
       }
     };
+    // Intentionally not including dependencies to ensure this only runs on unmount
   }, [callObject, isDestroyed]);
 
   // Format call duration
@@ -480,34 +597,44 @@ const TaviChat = ({
   const participantCount = Object.keys(participants).length;
   const hasAvatarParticipant = participantCount > 0;
   
-  console.log('Current participant count:', participantCount);
-  console.log('Has avatar participant:', hasAvatarParticipant);
-  console.log('Participants keys:', Object.keys(participants));
+  // Debug logging for participant state
+  useEffect(() => {
+    console.log('Current participant count:', participantCount);
+    console.log('Has avatar participant:', hasAvatarParticipant);
+    console.log('Participants keys:', Object.keys(participants));
+    
+    // Log audio track status
+    console.log('Local audio track:', audioTrackRef.current ? 'Available' : 'Not available');
+    console.log('Remote audio track:', remoteAudioTrackRef.current ? 'Available' : 'Not available');
+  }, [participantCount, hasAvatarParticipant, participants]);
 
   // Update video rendering
   const renderParticipantVideo = useCallback((participant: any) => {
     console.log(`=== Rendering participant: ${participant.session_id} ===`);
-    console.log('Participant local:', participant.local);
-    console.log('Participant tracks:', participant.tracks);
+    console.log(`Local: ${participant.local}, Audio track: ${participant.tracks?.audio ? 'Yes' : 'No'}`);
     
     const videoTrack = participant.tracks?.video?.track;
     const audioTrack = participant.tracks?.audio?.track;
     
-    console.log('Video track:', videoTrack);
-    console.log('Audio track:', audioTrack);
+    if (audioTrack) {
+      console.log('Audio track details:', {
+        id: audioTrack.id,
+        enabled: audioTrack.enabled,
+        muted: audioTrack.muted,
+        readyState: audioTrack.readyState
+      });
+    }
     
     const isVideoPlayable = participant.tracks?.video?.state === 'playable';
     const isAudioPlayable = participant.tracks?.audio?.state === 'playable';
     
-    console.log('Video playable:', isVideoPlayable);
-    console.log('Audio playable:', isAudioPlayable);
+    console.log(`Video playable: ${isVideoPlayable}, Audio playable: ${isAudioPlayable}`);
     
     // For audio-only calls, we still want to render even without video
-    if (!isAudioPlayable) {
-      console.log('No audio track for participant:', participant.session_id);
-      if (!isVideoPlayable) {
-        return null;
-      }
+    // Render even if only audio is available
+    if (!isAudioPlayable && !isVideoPlayable) {
+      console.log('No playable tracks for participant:', participant.session_id);
+      return null;
     }
     
     console.log('Rendering DailyMediaView for participant:', participant.session_id);
@@ -516,7 +643,7 @@ const TaviChat = ({
       <DailyMediaView
         key={participant.session_id}
         videoTrack={isVideoPlayable ? videoTrack : undefined}
-        audioTrack={isAudioPlayable ? audioTrack : undefined}
+        audioTrack={audioTrack}
         mirror={participant.local}
         zOrder={participant.local ? 1 : 0}
         style={styles.participantVideo}
@@ -524,7 +651,7 @@ const TaviChat = ({
         showParticipantLabel={false}
       />
     );
-  }, []);
+  }, [audioEnabled]);
 
   // Update audio indicator in UI
   const renderAudioIndicator = useCallback(() => {
@@ -652,7 +779,7 @@ const TaviChat = ({
             <View style={styles.centerContainer}>
               <View style={[styles.avatarContainer, { backgroundColor: colors.background }]}>
                 <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                  <Dog color="white" size={50} />
+                  <User color="white" size={50} />
                 </View>
                 <Text style={[styles.avatarLabel, { color: colors.text }]}>
                   Anna - AI Nurse Assistant
@@ -701,9 +828,10 @@ const TaviChat = ({
                     <View style={[styles.statusIndicator, { backgroundColor: '#F59E0B' }]} />
                     <Text style={[styles.connectionStatus, { color: colors.textSecondary }]}>
                       {participantCount ? 'Establishing connection...' : 'Connecting...'}
+              activeOpacity={0.7}
                     </Text>
                   </View>
-                </View>
+                <Play color="white" size={20} /> Start Video Chat
               )}
             </View>
           )}

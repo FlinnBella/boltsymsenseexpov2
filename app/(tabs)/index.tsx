@@ -13,9 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, User, Loader, Plus, Play } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
+import { router } from 'expo-router';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
-import { router } from 'expo-router';
 import TaviChat from './TaviChat';
 
 // Webhook URL for AI communication
@@ -26,6 +26,7 @@ export interface ChatMessage {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  formatted?: boolean;
 }
 
 // Function to format AI response text
@@ -35,9 +36,9 @@ const formatAIResponse = (text: string): string => {
   // Replace \n with actual newlines
   let formattedText = text.replace(/\\n/g, '\n');
   
-  // Replace **text** with bold formatting and add colon + newline
+  // Replace **text** with bold formatting and add colon + newline after each bold section
   formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, (match, content) => {
-    return `**${content}:**\n`;
+    return `**${content}**:\n`;
   });
   
   return formattedText;
@@ -86,7 +87,7 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
       <View style={styles.messageHeader}>
         <View style={[
           styles.messageIcon,
-          { backgroundColor: message.isUser ? colors.primary : colors.text }
+          { backgroundColor: message.isUser ? colors.primary : colors.primary }
         ]}>
           {message.isUser ? (
             <User color="white" size={16} />
@@ -110,7 +111,7 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
       ) : (
         <View style={[
           styles.messageText,
-          styles.aiMessageText,
+          styles.aiMessageText, 
           { backgroundColor: colors.background }
         ]}>
           <FormattedText 
@@ -144,7 +145,7 @@ const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: ()
       <Text style={[styles.placeholderSubtitle, { color: colors.textSecondary }]}>
         Ask me about your health, medications, symptoms, or get personalized recommendations
       </Text>
-    </Animated.View>
+    </Animated.View> 
   );
 };
 
@@ -155,12 +156,12 @@ export default function AIScreen() {
   const [showPlaceholder, setShowPlaceholder] = useState(true);
   const [showNewChatButton, setShowNewChatButton] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [isTaviModalVisible, setIsTaviModalVisible] = useState(false);
   const userProfile = useUserProfile();
   const medications = useMedications();
   const symptoms = useSymptoms();
   const foodLogs = useFoodLogs();
   const colors = useThemeColors();
-  const [isTaviModalVisible, setIsTaviModalVisible] = useState(false);
 
   useEffect(() => {
     scrollToBottom();
@@ -260,6 +261,7 @@ export default function AIScreen() {
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         text: aiResponse.output || 'No response from AI',
+        formatted: true,
         isUser: false,
         timestamp: new Date(),
       };
@@ -269,6 +271,7 @@ export default function AIScreen() {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         text: 'I apologize, but I\'m having trouble connecting right now. Please try again later or consult with a healthcare professional for urgent medical concerns.',
+        formatted: true,
         isUser: false,
         timestamp: new Date(),
       };
@@ -313,7 +316,7 @@ export default function AIScreen() {
               <View style={styles.messageHeader}>
                 <View style={[styles.messageIcon, { backgroundColor: colors.text }]}>
                   <User color="white" size={16} />
-                </View>
+                </View> 
                 <Text style={[styles.messageTime, { color: colors.textSecondary }]}>Now</Text>
               </View>
               <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -357,7 +360,7 @@ export default function AIScreen() {
             <View style={styles.buttonsContainer}>
             <TouchableOpacity
               style={[styles.sendButton, { backgroundColor: 'white' }]}
-              onPress={() => setIsTaviModalVisible(true)}
+              onPress={() => setIsTaviModalVisible(true)} 
               activeOpacity={0.6}
             >
               <Play color="black" size={18} />

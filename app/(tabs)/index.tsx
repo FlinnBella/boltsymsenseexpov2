@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Dog, User, Loader, Plus, Play } from 'lucide-react-native';
+import { Send, User, Loader, Plus, Play } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
@@ -91,7 +91,7 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
           {message.isUser ? (
             <User color="white" size={16} />
           ) : (
-            <Dog color="white" size={16} />
+            <User color="white" size={16} />
           )}
         </View>
         <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
@@ -138,7 +138,7 @@ const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: ()
       style={styles.placeholderContainer}
     >
       <View style={[styles.placeholderIcon, { backgroundColor: colors.primary + '20' }]}>
-        <Dog color={colors.primary} size={48} />
+        <User color={colors.primary} size={48} />
       </View>
       <Text style={[styles.placeholderTitle, { color: colors.text }]}>Chat with SymSense AI</Text>
       <Text style={[styles.placeholderSubtitle, { color: colors.textSecondary }]}>
@@ -312,13 +312,13 @@ export default function AIScreen() {
             >
               <View style={styles.messageHeader}>
                 <View style={[styles.messageIcon, { backgroundColor: colors.text }]}>
-                  <Dog color="white" size={16} />
+                  <User color="white" size={16} />
                 </View>
                 <Text style={[styles.messageTime, { color: colors.textSecondary }]}>Now</Text>
               </View>
               <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
                 <Loader color={colors.textSecondary} size={16} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>AI is thinking...</Text>
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Anna is thinking...</Text>
               </View>
             </Animated.View>
           )}

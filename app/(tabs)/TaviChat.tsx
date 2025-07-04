@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { PermissionsAndroid, Platform } from 'react-native';
 import {
   View,
   Modal,
@@ -6,7 +7,6 @@ import {
   Text,
   StyleSheet,
   Alert,
-  Platform,
   Dimensions,
   PanResponder,
   Animated,
@@ -44,6 +44,9 @@ const TaviChat = ({
   const [callDuration, setCallDuration] = useState(0);
   const [isDestroyed, setIsDestroyed] = useState(false);
 
+  // Audio permissions state
+  const [hasAudioPermission, setHasAudioPermission] = useState(false);
+
   // Picture-in-picture positioning
   const pan = useRef(new Animated.ValueXY()).current;
   const [pipPosition, setPipPosition] = useState({ x: screenWidth - 120, y: 100 });
@@ -53,6 +56,41 @@ const TaviChat = ({
 
   // Audio state
   const [audioEnabled, setAudioEnabled] = useState(true);
+
+  // Request audio permissions
+  const requestAudioPermissions = useCallback(async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: 'Microphone Permission',
+            message: 'This app needs access to your microphone for video calls.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        
+        const hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        setHasAudioPermission(hasPermission);
+        return hasPermission;
+      } else {
+        // iOS permissions are handled by the system
+        setHasAudioPermission(true);
+        return true;
+      }
+    } catch (error) {
+      console.error('Error requesting audio permissions:', error);
+      setHasAudioPermission(false);
+      return false;
+    }
+  }, []);
+
+  // Initialize permissions on mount
+  useEffect(() => {
+    requestAudioPermissions();
+  }, [requestAudioPermissions]);
 
   // PanResponder for draggable PiP
   const panResponder = useRef(
@@ -101,12 +139,17 @@ const TaviChat = ({
           persona_id: personaId,
           conversational_context: "You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance.",
           custom_greeting: "Hello! I'm Anna, your nurse assistant. How can I help you today?",
+          enable_audio: true,
           properties: {
             max_call_duration: 60, // 60 seconds max
             participant_left_timeout: 60,
             participant_absent_timeout: 300,
             enable_recording: false,
             language: "english"
+          },
+          audio_settings: {
+            input_enabled: true,
+            output_enabled: true,
           },
         }),
       });
@@ -141,11 +184,17 @@ const TaviChat = ({
 
     const options: DailyFactoryOptions = {
       audioSource: true,
-      videoSource: true,
+      videoSource: false, // Disable video to focus on audio
       subscribeToTracksAutomatically: true,
+      enableAudio: true,
+      enableVideo: false,
     };
 
     const newCallObject = Daily.createCallObject(options);
+    
+    // Set audio constraints
+    newCallObject.setAudioDevice({ deviceId: 'default' });
+    
     setCallObject(newCallObject);
     setIsDestroyed(false);
     return newCallObject;
@@ -155,6 +204,12 @@ const TaviChat = ({
   const handleJoinedMeeting = useCallback((event: any) => {
     console.log('Joined meeting:', event);
     setIsConnected(true);
+    
+    // Ensure audio is enabled after joining
+    if (callObject && !isDestroyed) {
+      callObject.setLocalAudio(true);
+    }
+    
     setIsLoading(false);
     setConnectionError(null);
     
@@ -166,6 +221,8 @@ const TaviChat = ({
 
   const handleParticipantJoined = useCallback((event: any) => {
     console.log('Participant joined event:', JSON.stringify(event, null, 2));
+    console.log('Participant audio track:', event.participant.tracks?.audio);
+    console.log('Participant video track:', event.participant.tracks?.video);
     
     setParticipants((prev: any) => {
       const updated = {
@@ -174,6 +231,17 @@ const TaviChat = ({
       };
       return updated;
     });
+    
+    // Enable audio for the participant
+    if (callObject && !isDestroyed && event.participant.tracks?.audio) {
+      try {
+        callObject.updateParticipant(event.participant.session_id, {
+          setAudio: true,
+        });
+      } catch (error) {
+        console.error('Error enabling participant audio:', error);
+      }
+    }
   }, []);
 
   const handleParticipantLeft = useCallback((event: any) => {
@@ -208,6 +276,11 @@ const TaviChat = ({
   // Enhanced track started handler
   const handleTrackStarted = useCallback((event: any) => {
     console.log('Track started:', event);
+    console.log('Track type:', event.track?.kind);
+    console.log('Track state:', event.track?.readyState);
+    console.log('Track enabled:', event.track?.enabled);
+    console.log('Participant session ID:', event.participant?.session_id);
+    
     const { participant, track } = event;
     
     setParticipants((prev: any) => {
@@ -229,11 +302,46 @@ const TaviChat = ({
         },
       };
     });
+    
+    // If this is an audio track, ensure it's properly configured
+    if (track.kind === 'audio') {
+      console.log('Audio track started, configuring...');
+      try {
+        // Ensure the track is enabled and not muted
+        track.enabled = true;
+        
+        // For remote participants, ensure we're subscribed to their audio
+        if (!participant.local && callObject && !isDestroyed) {
+          callObject.updateParticipant(participant.session_id, {
+            setSubscribedTracks: {
+              audio: true,
+              video: false,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error configuring audio track:', error);
+      }
+    }
+  }, []);
+
+  // Add track stopped handler
+  const handleTrackStopped = useCallback((event: any) => {
+    console.log('Track stopped:', event);
   }, []);
 
   // Join call function
   const joinCall = useCallback(async () => {
     if (isLoading || isConnected) return;
+    
+    // Check audio permissions first
+    if (!hasAudioPermission) {
+      const granted = await requestAudioPermissions();
+      if (!granted) {
+        Alert.alert('Permission Required', 'Microphone permission is required for video calls.');
+        return;
+      }
+    }
 
     setIsLoading(true);
     setConnectionError(null);
@@ -250,8 +358,12 @@ const TaviChat = ({
       const call = initializeCall();
       
       // Configure audio settings before joining
-      await call.setLocalAudio(true);
-      await call.setLocalVideo(false);
+      try {
+        await call.setLocalAudio(true);
+        await call.setLocalVideo(false);
+      } catch (error) {
+        console.error('Error setting local media:', error);
+      }
       
       await call.join({ url: tavusUrl });
     } catch (error) {
@@ -260,7 +372,7 @@ const TaviChat = ({
       setConnectionError('Failed to join call');
       Alert.alert('Error', 'Failed to join call. Please try again.');
     }
-  }, [isLoading, isConnected, createTavusConversation, initializeCall]);
+  }, [isLoading, isConnected, createTavusConversation, initializeCall, hasAudioPermission, requestAudioPermissions]);
 
   // Leave call function
   const leaveCall = useCallback(async () => {
@@ -292,11 +404,15 @@ const TaviChat = ({
     if (!callObject || isDestroyed) return;
 
     try {
-      await callObject.setLocalAudio(!audioEnabled);
-      setAudioEnabled(!audioEnabled);
-      setIsMuted(!audioEnabled);
+      const newAudioState = !audioEnabled;
+      await callObject.setLocalAudio(newAudioState);
+      setAudioEnabled(newAudioState);
+      setIsMuted(!newAudioState);
+      
+      console.log('Audio toggled:', newAudioState ? 'enabled' : 'disabled');
     } catch (error) {
       console.error('Error toggling audio:', error);
+      Alert.alert('Audio Error', 'Failed to toggle microphone. Please try again.');
     }
   }, [callObject, audioEnabled, isDestroyed]);
 
@@ -310,6 +426,7 @@ const TaviChat = ({
       'participant-left': handleParticipantLeft,
       'left-meeting': handleCallEnded,
       'track-started': handleTrackStarted,
+      'track-stopped': handleTrackStopped,
       error: handleError,
     };
 
@@ -332,6 +449,7 @@ const TaviChat = ({
     handleParticipantLeft,
     handleCallEnded,
     handleTrackStarted,
+    handleTrackStopped,
     handleError,
   ]);
 
@@ -369,6 +487,7 @@ const TaviChat = ({
   // Update video rendering
   const renderParticipantVideo = useCallback((participant: any) => {
     console.log(`=== Rendering participant: ${participant.session_id} ===`);
+    console.log('Participant local:', participant.local);
     console.log('Participant tracks:', participant.tracks);
     
     const videoTrack = participant.tracks?.video?.track;
@@ -383,19 +502,26 @@ const TaviChat = ({
     console.log('Video playable:', isVideoPlayable);
     console.log('Audio playable:', isAudioPlayable);
     
-    if (!isVideoPlayable && !isAudioPlayable) {
-      console.log('No playable tracks for participant:', participant.session_id);
-      return null;
+    // For audio-only calls, we still want to render even without video
+    if (!isAudioPlayable) {
+      console.log('No audio track for participant:', participant.session_id);
+      if (!isVideoPlayable) {
+        return null;
+      }
     }
+    
+    console.log('Rendering DailyMediaView for participant:', participant.session_id);
     
     return (
       <DailyMediaView
         key={participant.session_id}
-        videoTrack={videoTrack}
-        audioTrack={audioTrack}
+        videoTrack={isVideoPlayable ? videoTrack : undefined}
+        audioTrack={isAudioPlayable ? audioTrack : undefined}
         mirror={participant.local}
         zOrder={participant.local ? 1 : 0}
         style={styles.participantVideo}
+        objectFit="cover"
+        showParticipantLabel={false}
       />
     );
   }, []);
@@ -406,10 +532,15 @@ const TaviChat = ({
 
     return (
       <View style={styles.audioIndicator}>
-        <View style={[
-          styles.audioLevelBar,
-          { height: Math.max(2, audioEnabled ? 30 : 0) }
-        ]} />
+        <View style={styles.audioLevelContainer}>
+          <View style={[
+            styles.audioLevelBar,
+            { 
+              height: Math.max(2, audioEnabled ? 30 : 0),
+              backgroundColor: audioEnabled ? '#4CAF50' : '#F44336'
+            }
+          ]} />
+        </View>
         <Text style={styles.audioStatus}>
           {audioEnabled ? 'Mic On' : 'Muted'}
         </Text>
@@ -548,14 +679,14 @@ const TaviChat = ({
               {renderAudioIndicator()}
               {/* Debug info */}
               <Text style={{ color: colors.text, position: 'absolute', top: 10, left: 10, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.5)', padding: 5 }}>
-                Participants: {participantCount} | Connected: {isConnected ? 'Yes' : 'No'}
+                Participants: {participantCount} | Connected: {isConnected ? 'Yes' : 'No'} | Audio: {audioEnabled ? 'On' : 'Off'}
               </Text>
 
               {/* Video participants */}
               {Object.values(participants).map(renderParticipantVideo)}
 
               {/* Fallback UI when no participants or no playable tracks */}
-              {(!participantCount || !Object.values(participants).some((p: any) => p.tracks?.video?.state === 'playable')) && (
+              {(!participantCount || !Object.values(participants).some((p: any) => p.tracks?.audio?.state === 'playable' || p.tracks?.video?.state === 'playable')) && (
                 <View style={[styles.videoBox, { backgroundColor: colors.background }]}>
                   <View style={styles.videoContent}>
                     <View style={[styles.avatarVideo, { backgroundColor: colors.primary }]}>
@@ -908,9 +1039,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     zIndex: 100,
   },
+  audioLevelContainer: {
+    width: 20,
+    height: 30,
+    justifyContent: 'flex-end',
+  },
   audioLevelBar: {
     width: 3,
-    backgroundColor: '#4CAF50',
     marginRight: 8,
   },
   audioStatus: {

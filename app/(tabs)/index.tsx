@@ -28,40 +28,100 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-// Move MessageBubble outside the main component to prevent re-renders
-const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; colors: any }) => (
-  <Animated.View
-    entering={FadeInRight.delay(100).duration(400)}
-    style={[
-      styles.messageBubble,
-      message.isUser ? styles.userMessage : styles.aiMessage,
-    ]}
-  >
-    <View style={styles.messageHeader}>
-      <View style={[
-        styles.messageIcon,
-        { backgroundColor: message.isUser ? colors.primary : colors.text }
-      ]}>
-        {message.isUser ? (
-          <User color="white" size={16} />
-        ) : (
-          <Dog color="white" size={16} />
-        )}
-      </View>
-      <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
-        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </Text>
-    </View>
-    <Text style={[
-      styles.messageText,
-      message.isUser ? 
-        [styles.userMessageText, { backgroundColor: colors.primary }] : 
-        [styles.aiMessageText, { backgroundColor: colors.background, color: colors.text }]
-    ]}>
-      {message.text}
+// Function to format AI response text
+const formatAIResponse = (text: string): string => {
+  if (!text) return text;
+  
+  // Replace \n with actual newlines
+  let formattedText = text.replace(/\\n/g, '\n');
+  
+  // Replace **text** with bold formatting and add colon + newline
+  formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, (match, content) => {
+    return `**${content}:**\n`;
+  });
+  
+  return formattedText;
+};
+
+// Component to render formatted text
+const FormattedText = ({ text, style }: { text: string; style: any }) => {
+  const colors = useThemeColors();
+  
+  // Split text by bold patterns and newlines
+  const parts = text.split(/(\*\*.*?\*\*:|\n)/g);
+  
+  return (
+    <Text style={style}>
+      {parts.map((part, index) => {
+        if (part === '\n') {
+          return '\n';
+        } else if (part.startsWith('**') && part.endsWith(':**')) {
+          // Bold text with colon
+          const boldContent = part.slice(2, -3); // Remove ** and :
+          return (
+            <Text key={index} style={{ fontWeight: 'bold', fontSize: 18, color: style.color }}>
+              {boldContent}:
+            </Text>
+          );
+        } else {
+          return part;
+        }
+      })}
     </Text>
-  </Animated.View>
-));
+  );
+};
+
+// Move MessageBubble outside the main component to prevent re-renders
+const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; colors: any }) => {
+  const formattedText = message.isUser ? message.text : formatAIResponse(message.text);
+  
+  return (
+    <Animated.View
+      entering={FadeInRight.delay(100).duration(400)}
+      style={[
+        styles.messageBubble,
+        message.isUser ? styles.userMessage : styles.aiMessage,
+      ]}
+    >
+      <View style={styles.messageHeader}>
+        <View style={[
+          styles.messageIcon,
+          { backgroundColor: message.isUser ? colors.primary : colors.text }
+        ]}>
+          {message.isUser ? (
+            <User color="white" size={16} />
+          ) : (
+            <Dog color="white" size={16} />
+          )}
+        </View>
+        <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+      
+      {message.isUser ? (
+        <Text style={[
+          styles.messageText,
+          styles.userMessageText,
+          { backgroundColor: colors.primary }
+        ]}>
+          {message.text}
+        </Text>
+      ) : (
+        <View style={[
+          styles.messageText,
+          styles.aiMessageText,
+          { backgroundColor: colors.background }
+        ]}>
+          <FormattedText 
+            text={formattedText} 
+            style={{ color: colors.text, fontSize: 16, fontFamily: 'Inter-Regular', lineHeight: 22 }}
+          />
+        </View>
+      )}
+    </Animated.View>
+  );
+});
 
 // Initial chat placeholder component
 const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: () => void; colors: any }) => {
@@ -166,7 +226,7 @@ export default function AIScreen() {
         const errorText = await response.text();
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
-      // TODO: FORMAT THE TEXT CLIENT SIDE HERE
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -273,6 +333,7 @@ export default function AIScreen() {
             <TouchableOpacity
               style={[styles.newChatButton, { backgroundColor: colors.background, borderColor: colors.border }]}
               onPress={handleNewChat}
+              activeOpacity={0.7}
             >
               <Plus color={colors.text} size={16} />
               <Text style={[styles.newChatButtonText, { color: colors.text }]}>New chat</Text>
@@ -297,6 +358,7 @@ export default function AIScreen() {
             <TouchableOpacity
               style={[styles.sendButton, { backgroundColor: 'white' }]}
               onPress={() => setIsTaviModalVisible(true)}
+              activeOpacity={0.6}
             >
               <Play color="black" size={18} />
             </TouchableOpacity>
@@ -307,6 +369,7 @@ export default function AIScreen() {
               ]}
               onPress={sendMessage}
               disabled={!inputText.trim() || isLoading}
+              activeOpacity={0.6}
             >
               <Send color="black" size={18} />
             </TouchableOpacity>

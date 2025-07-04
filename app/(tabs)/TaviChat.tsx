@@ -42,6 +42,7 @@ const TaviChat = ({
   const [isMuted, setIsMuted] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [callDuration, setCallDuration] = useState(0);
+  const [isDestroyed, setIsDestroyed] = useState(false);
 
   // Picture-in-picture positioning
   const pan = useRef(new Animated.ValueXY()).current;
@@ -136,18 +137,19 @@ const TaviChat = ({
 
   // Initialize call
   const initializeCall = useCallback(() => {
-    if (callObject) return callObject;
+    if (callObject && !isDestroyed) return callObject;
 
     const options: DailyFactoryOptions = {
       audioSource: true,
-      videoSource: false,
+      videoSource: true,
       subscribeToTracksAutomatically: true,
     };
 
     const newCallObject = Daily.createCallObject(options);
     setCallObject(newCallObject);
+    setIsDestroyed(false);
     return newCallObject;
-  }, [callObject]);
+  }, [callObject, isDestroyed]);
 
   // Event handlers
   const handleJoinedMeeting = useCallback((event: any) => {
@@ -246,6 +248,11 @@ const TaviChat = ({
       setConversationUrl(tavusUrl);
 
       const call = initializeCall();
+      
+      // Configure audio settings before joining
+      await call.setLocalAudio(true);
+      await call.setLocalVideo(false);
+      
       await call.join({ url: tavusUrl });
     } catch (error) {
       console.error('Error joining call:', error);
@@ -257,9 +264,11 @@ const TaviChat = ({
 
   // Leave call function
   const leaveCall = useCallback(async () => {
-    if (callObject && isConnected) {
+    if (callObject && isConnected && !isDestroyed) {
       try {
         await callObject.leave();
+        await callObject.destroy();
+        setIsDestroyed(true);
       } catch (error) {
         console.error('Error leaving call:', error);
       }
@@ -274,12 +283,13 @@ const TaviChat = ({
     setParticipants({});
     setCallDuration(0);
     setIsMinimized(false);
+    setCallObject(null);
     onClose();
-  }, [callObject, isConnected, onClose]);
+  }, [callObject, isConnected, isDestroyed, onClose]);
 
   // Toggle audio
   const toggleMute = useCallback(async () => {
-    if (!callObject) return;
+    if (!callObject || isDestroyed) return;
 
     try {
       await callObject.setLocalAudio(!audioEnabled);
@@ -288,11 +298,11 @@ const TaviChat = ({
     } catch (error) {
       console.error('Error toggling audio:', error);
     }
-  }, [callObject, audioEnabled]);
+  }, [callObject, audioEnabled, isDestroyed]);
 
   // Setup event listeners
   useEffect(() => {
-    if (!callObject) return;
+    if (!callObject || isDestroyed) return;
 
     const eventHandlers = {
       'joined-meeting': handleJoinedMeeting,
@@ -308,12 +318,15 @@ const TaviChat = ({
     });
 
     return () => {
-      Object.entries(eventHandlers).forEach(([event, handler]) => {
-        callObject.off(event, handler);
-      });
+      if (!isDestroyed) {
+        Object.entries(eventHandlers).forEach(([event, handler]) => {
+          callObject.off(event, handler);
+        });
+      }
     };
   }, [
     callObject,
+    isDestroyed,
     handleJoinedMeeting,
     handleParticipantJoined,
     handleParticipantLeft,
@@ -325,14 +338,19 @@ const TaviChat = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (callObject) {
-        callObject.destroy();
+      if (callObject && !isDestroyed) {
+        try {
+          callObject.destroy();
+          setIsDestroyed(true);
+        } catch (error) {
+          console.error('Error destroying call object:', error);
+        }
       }
       if (durationInterval.current) {
         clearInterval(durationInterval.current);
       }
     };
-  }, [callObject]);
+  }, [callObject, isDestroyed]);
 
   // Format call duration
   const formatDuration = (seconds: number) => {
@@ -416,7 +434,7 @@ const TaviChat = ({
         <View style={[styles.pipContent, { backgroundColor: colors.primary }]}>
           <View style={styles.pipHeader}>
             <Text style={styles.pipTitle}>Anna</Text>
-            <TouchableOpacity onPress={() => (false)}>
+            <TouchableOpacity onPress={() => setIsMinimized(false)}>
               <Maximize2 color="white" size={16} />
             </TouchableOpacity>
           </View>
@@ -451,16 +469,16 @@ const TaviChat = ({
       onRequestClose={leaveCall}
     >
       <View style={[styles.container, { backgroundColor: colors.surface }]}>
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        {/* Header - Completely transparent background */}
+        <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => setIsMinimized(true)} style={styles.headerButton}>
-              <Minimize2 color="white" size={20} />
+              <Minimize2 color={colors.text} size={20} />
             </TouchableOpacity>
           </View>
           
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>
+            <Text style={[styles.headerTitle, { color: colors.text, fontSize: 18 }]}>
               {isConnected 
                 ? hasAvatarParticipant 
                   ? 'Anna - AI Assistant' 
@@ -469,7 +487,7 @@ const TaviChat = ({
               }
             </Text>
             {isConnected && (
-              <Text style={styles.headerSubtitle}>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                 {formatDuration(callDuration)} • {60 - callDuration}s remaining
               </Text>
             )}
@@ -477,7 +495,7 @@ const TaviChat = ({
           
           <View style={styles.headerRight}>
             <TouchableOpacity onPress={leaveCall} style={styles.headerButton}>
-              <X color="white" size={20} />
+              <X color={colors.text} size={20} />
             </TouchableOpacity>
           </View>
         </View>
@@ -503,7 +521,7 @@ const TaviChat = ({
             <View style={styles.centerContainer}>
               <View style={[styles.avatarContainer, { backgroundColor: colors.background }]}>
                 <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                  <Dog color="green" size={50} />
+                  <Dog color="white" size={50} />
                 </View>
                 <Text style={[styles.avatarLabel, { color: colors.text }]}>
                   Anna - AI Nurse Assistant
@@ -541,7 +559,7 @@ const TaviChat = ({
                 <View style={[styles.videoBox, { backgroundColor: colors.background }]}>
                   <View style={styles.videoContent}>
                     <View style={[styles.avatarVideo, { backgroundColor: colors.primary }]}>
-                      <Dog color="green" size={50} />
+                      <Dog color="white" size={50} />
                     </View>
                     <Text style={[styles.videoLabel, { color: colors.text }]}>
                       {participantCount ? 'Connecting video...' : 'Waiting for Anna...'}
@@ -570,6 +588,7 @@ const TaviChat = ({
                   { backgroundColor: audioEnabled ? colors.background : colors.error }
                 ]}
                 onPress={toggleMute}
+                activeOpacity={0.7}
               >
                 {audioEnabled ? <Mic color={colors.text} size={24} /> : <MicOff color="white" size={24} />}
               </TouchableOpacity>
@@ -577,6 +596,7 @@ const TaviChat = ({
               <TouchableOpacity
                 style={[styles.endCallButton, { backgroundColor: colors.error }]}
                 onPress={leaveCall}
+                activeOpacity={0.7}
               >
                 <Text style={styles.endCallButtonText}>End Chat</Text>
               </TouchableOpacity>
@@ -584,6 +604,7 @@ const TaviChat = ({
               <TouchableOpacity
                 style={[styles.controlButton, { backgroundColor: colors.background }]}
                 onPress={() => setIsMinimized(true)}
+                activeOpacity={0.7}
               >
                 <Minimize2 color={colors.text} size={24} />
               </TouchableOpacity>
@@ -606,6 +627,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingHorizontal: 20,
     paddingBottom: 15,
+    backgroundColor: 'transparent', // Completely transparent
   },
   headerLeft: {
     width: 40,
@@ -622,18 +644,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'transparent', // Transparent background
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: 'white',
     fontSize: 18,
     fontFamily: 'Inter-SemiBold',
     textAlign: 'center',
   },
   headerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
     marginTop: 2,

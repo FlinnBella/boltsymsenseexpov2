@@ -11,7 +11,7 @@ import {
   PanResponder,
   Animated,
 } from 'react-native';
-import { X, Minimize2, Maximize2, Mic, MicOff, Dog } from 'lucide-react-native';
+import { X, Minimize2, Maximize2, Mic, MicOff, Dog, User } from 'lucide-react-native';
 import Daily, { DailyMediaView, DailyFactoryOptions } from '@daily-co/react-native-daily-js';
 import { useThemeColors } from '@/stores/useThemeStore';
 
@@ -201,20 +201,16 @@ const TaviChat = ({
       audioSource: true,
       videoSource: false, // Disable video to focus on audio
       subscribeToTracksAutomatically: true,
-      enableAudio: true,
-      enableVideo: false,
       dailyConfig: {
-        experimentalChromeVideoMuteLightOff: true,
-        camSimulcastEncodings: false,
-        avoidEval: true,
+        camSimulcastEncodings: [] // Keep only supported option
       }
     };
 
     const newCallObject = Daily.createCallObject(options);
     
-    // Set audio constraints
+    // Set audio device
     try {
-      newCallObject.setAudioDevice({ deviceId: 'default' });
+      newCallObject.setAudioDevice('default');
     } catch (error) {
       console.error('Error setting audio device:', error);
     }
@@ -322,25 +318,25 @@ const TaviChat = ({
   const handleTrackStarted = useCallback((event: any) => {
     console.log('Track started:', event);
     
-    // Detailed track logging
-    const { participant, track } = event;
-    console.log(`Track started - Type: ${track?.kind}, State: ${track?.readyState}, Enabled: ${track?.enabled}`);
-    console.log(`Participant: ${participant?.session_id}, Local: ${participant?.local}`);
+    // Get track info
+    const trackInfo = event;
+    console.log(`Track started - Type: ${trackInfo.track?.kind}, State: ${trackInfo.track?.readyState}, Enabled: ${trackInfo.track?.enabled}`);
+    console.log(`Participant: ${trackInfo.participant?.session_id}, Local: ${trackInfo.participant?.local}`);
     
-    if (track?.kind === 'audio') {
+    if (trackInfo.track?.kind === 'audio') {
       console.log('Audio track details:', {
-        id: track.id,
-        muted: track.muted,
-        enabled: track.enabled,
-        readyState: track.readyState,
+        id: trackInfo.track.id,
+        muted: trackInfo.track.muted,
+        enabled: trackInfo.track.enabled,
+        readyState: trackInfo.track.readyState,
       });
       
       // Store audio track references
-      if (participant.local) {
-        audioTrackRef.current = track;
+      if (trackInfo.participant.local) {
+        audioTrackRef.current = trackInfo.track;
         console.log('Stored local audio track reference');
       } else {
-        remoteAudioTrackRef.current = track;
+        remoteAudioTrackRef.current = trackInfo.track;
         console.log('Stored remote audio track reference');
       }
     }
@@ -572,7 +568,7 @@ const TaviChat = ({
           }
           
           // Then leave and destroy
-          callObject.leave().catch(e => console.log('Error leaving call during cleanup:', e));
+          callObject.leave().catch((error: Error) => console.log('Error leaving call during cleanup:', error));
           callObject.destroy();
           setIsDestroyed(true);
           console.log('Call object destroyed during cleanup');
@@ -584,7 +580,6 @@ const TaviChat = ({
         clearInterval(durationInterval.current);
       }
     };
-    // Intentionally not including dependencies to ensure this only runs on unmount
   }, [callObject, isDestroyed]);
 
   // Format call duration
@@ -648,7 +643,6 @@ const TaviChat = ({
         zOrder={participant.local ? 1 : 0}
         style={styles.participantVideo}
         objectFit="cover"
-        showParticipantLabel={false}
       />
     );
   }, [audioEnabled]);
@@ -828,10 +822,9 @@ const TaviChat = ({
                     <View style={[styles.statusIndicator, { backgroundColor: '#F59E0B' }]} />
                     <Text style={[styles.connectionStatus, { color: colors.textSecondary }]}>
                       {participantCount ? 'Establishing connection...' : 'Connecting...'}
-              activeOpacity={0.7}
                     </Text>
                   </View>
-                <Play color="white" size={20} /> Start Video Chat
+                </View>
               )}
             </View>
           )}

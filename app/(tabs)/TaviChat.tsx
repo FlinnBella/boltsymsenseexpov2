@@ -11,8 +11,8 @@ import {
   PanResponder,
   Animated,
 } from 'react-native';
-import { X, Minimize2, Maximize2, Mic, MicOff } from 'lucide-react-native';
-import Daily from '@daily-co/react-native-daily-js';
+import { X, Minimize2, Maximize2, Mic, MicOff, Dog } from 'lucide-react-native';
+import Daily, { DailyMediaView, DailyFactoryOptions } from '@daily-co/react-native-daily-js';
 import { useThemeColors } from '@/stores/useThemeStore';
 
 interface TaviChatProps {
@@ -49,6 +49,9 @@ const TaviChat = ({
 
   // Call duration timer
   const durationInterval = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  // Audio state
+  const [audioEnabled, setAudioEnabled] = useState(true);
 
   // PanResponder for draggable PiP
   const panResponder = useRef(
@@ -131,23 +134,17 @@ const TaviChat = ({
     }
   }, [apiKey, replicaId, personaId]);
 
-  // Initialize Daily call object
+  // Initialize call
   const initializeCall = useCallback(() => {
     if (callObject) return callObject;
 
-    const newCallObject = Daily.createCallObject({
-      startVideoOff: false, // Enable video for avatar
-      startAudioOff: false,
-      dailyConfig: {
-        userMediaVideoConstraints: {
-          width: 640,
-          height: 480,
-        },
-        userMediaAudioConstraints: {
-        },
-      },
-    });
+    const options: DailyFactoryOptions = {
+      audioSource: true,
+      videoSource: false,
+      subscribeToTracksAutomatically: true,
+    };
 
+    const newCallObject = Daily.createCallObject(options);
     setCallObject(newCallObject);
     return newCallObject;
   }, [callObject]);
@@ -166,11 +163,15 @@ const TaviChat = ({
   }, []);
 
   const handleParticipantJoined = useCallback((event: any) => {
-    console.log('Participant joined:', event);
-    setParticipants((prev: any) => ({
-      ...prev,
-      [event.participant.session_id]: event.participant,
-    }));
+    console.log('Participant joined event:', JSON.stringify(event, null, 2));
+    
+    setParticipants((prev: any) => {
+      const updated = {
+        ...prev,
+        [event.participant.session_id]: event.participant,
+      };
+      return updated;
+    });
   }, []);
 
   const handleParticipantLeft = useCallback((event: any) => {
@@ -202,35 +203,31 @@ const TaviChat = ({
     Alert.alert('Connection Error', 'Unable to connect to the video call. Please try again.');
   }, []);
 
-  // Setup event listeners
-  useEffect(() => {
-    if (!callObject) return;
-
-    const eventHandlers = {
-      'joined-meeting': handleJoinedMeeting,
-      'participant-joined': handleParticipantJoined,
-      'participant-left': handleParticipantLeft,
-      'left-meeting': handleCallEnded,
-      error: handleError,
-    };
-
-    Object.entries(eventHandlers).forEach(([event, handler]) => {
-      callObject.on(event, handler);
+  // Enhanced track started handler
+  const handleTrackStarted = useCallback((event: any) => {
+    console.log('Track started:', event);
+    const { participant, track } = event;
+    
+    setParticipants((prev: any) => {
+      const participantData = prev[participant.session_id];
+      if (!participantData) return prev;
+      
+      return {
+        ...prev,
+        [participant.session_id]: {
+          ...participantData,
+          tracks: {
+            ...participantData.tracks,
+            [track.kind]: {
+              ...participantData.tracks[track.kind],
+              state: 'playable',
+              track: track,
+            },
+          },
+        },
+      };
     });
-
-    return () => {
-      Object.entries(eventHandlers).forEach(([event, handler]) => {
-        callObject.off(event, handler);
-      });
-    };
-  }, [
-    callObject,
-    handleJoinedMeeting,
-    handleParticipantJoined,
-    handleParticipantLeft,
-    handleCallEnded,
-    handleError,
-  ]);
+  }, []);
 
   // Join call function
   const joinCall = useCallback(async () => {
@@ -240,25 +237,23 @@ const TaviChat = ({
     setConnectionError(null);
 
     try {
-      let roomUrl = conversationUrl;
-      if (!roomUrl) {
-        roomUrl = await createTavusConversation();
-        if (!roomUrl) {
-          setIsLoading(false);
-          return;
-        }
-        setConversationUrl(roomUrl);
+      // Create Tavus conversation for the AI avatar
+      const tavusUrl = await createTavusConversation();
+      if (!tavusUrl) {
+        setIsLoading(false);
+        return;
       }
+      setConversationUrl(tavusUrl);
 
       const call = initializeCall();
-      await call.join({ url: roomUrl });
+      await call.join({ url: tavusUrl });
     } catch (error) {
       console.error('Error joining call:', error);
       setIsLoading(false);
       setConnectionError('Failed to join call');
       Alert.alert('Error', 'Failed to join call. Please try again.');
     }
-  }, [isLoading, isConnected, conversationUrl, createTavusConversation, initializeCall]);
+  }, [isLoading, isConnected, createTavusConversation, initializeCall]);
 
   // Leave call function
   const leaveCall = useCallback(async () => {
@@ -282,25 +277,52 @@ const TaviChat = ({
     onClose();
   }, [callObject, isConnected, onClose]);
 
-  // Toggle mute
+  // Toggle audio
   const toggleMute = useCallback(async () => {
-    if (callObject) {
-      try {
-        await callObject.setLocalAudio(!isMuted);
-        setIsMuted(!isMuted);
-      } catch (error) {
-        console.error('Error toggling mute:', error);
-      }
-    }
-  }, [callObject, isMuted]);
+    if (!callObject) return;
 
-  // Cleanup on unmount or modal close
+    try {
+      await callObject.setLocalAudio(!audioEnabled);
+      setAudioEnabled(!audioEnabled);
+      setIsMuted(!audioEnabled);
+    } catch (error) {
+      console.error('Error toggling audio:', error);
+    }
+  }, [callObject, audioEnabled]);
+
+  // Setup event listeners
   useEffect(() => {
-    if (!visible && callObject) {
-      leaveCall();
-    }
-  }, [visible, callObject, leaveCall]);
+    if (!callObject) return;
 
+    const eventHandlers = {
+      'joined-meeting': handleJoinedMeeting,
+      'participant-joined': handleParticipantJoined,
+      'participant-left': handleParticipantLeft,
+      'left-meeting': handleCallEnded,
+      'track-started': handleTrackStarted,
+      error: handleError,
+    };
+
+    Object.entries(eventHandlers).forEach(([event, handler]) => {
+      callObject.on(event, handler);
+    });
+
+    return () => {
+      Object.entries(eventHandlers).forEach(([event, handler]) => {
+        callObject.off(event, handler);
+      });
+    };
+  }, [
+    callObject,
+    handleJoinedMeeting,
+    handleParticipantJoined,
+    handleParticipantLeft,
+    handleCallEnded,
+    handleTrackStarted,
+    handleError,
+  ]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (callObject) {
@@ -321,6 +343,61 @@ const TaviChat = ({
 
   const participantCount = Object.keys(participants).length;
   const hasAvatarParticipant = participantCount > 0;
+  
+  console.log('Current participant count:', participantCount);
+  console.log('Has avatar participant:', hasAvatarParticipant);
+  console.log('Participants keys:', Object.keys(participants));
+
+  // Update video rendering
+  const renderParticipantVideo = useCallback((participant: any) => {
+    console.log(`=== Rendering participant: ${participant.session_id} ===`);
+    console.log('Participant tracks:', participant.tracks);
+    
+    const videoTrack = participant.tracks?.video?.track;
+    const audioTrack = participant.tracks?.audio?.track;
+    
+    console.log('Video track:', videoTrack);
+    console.log('Audio track:', audioTrack);
+    
+    const isVideoPlayable = participant.tracks?.video?.state === 'playable';
+    const isAudioPlayable = participant.tracks?.audio?.state === 'playable';
+    
+    console.log('Video playable:', isVideoPlayable);
+    console.log('Audio playable:', isAudioPlayable);
+    
+    if (!isVideoPlayable && !isAudioPlayable) {
+      console.log('No playable tracks for participant:', participant.session_id);
+      return null;
+    }
+    
+    return (
+      <DailyMediaView
+        key={participant.session_id}
+        videoTrack={videoTrack}
+        audioTrack={audioTrack}
+        mirror={participant.local}
+        zOrder={participant.local ? 1 : 0}
+        style={styles.participantVideo}
+      />
+    );
+  }, []);
+
+  // Update audio indicator in UI
+  const renderAudioIndicator = useCallback(() => {
+    if (!isConnected) return null;
+
+    return (
+      <View style={styles.audioIndicator}>
+        <View style={[
+          styles.audioLevelBar,
+          { height: Math.max(2, audioEnabled ? 30 : 0) }
+        ]} />
+        <Text style={styles.audioStatus}>
+          {audioEnabled ? 'Mic On' : 'Muted'}
+        </Text>
+      </View>
+    );
+  }, [isConnected, audioEnabled]);
 
   // Picture-in-picture view
   if (isMinimized && isConnected) {
@@ -339,7 +416,7 @@ const TaviChat = ({
         <View style={[styles.pipContent, { backgroundColor: colors.primary }]}>
           <View style={styles.pipHeader}>
             <Text style={styles.pipTitle}>Anna</Text>
-            <TouchableOpacity onPress={() => setIsMinimized(false)}>
+            <TouchableOpacity onPress={() => (false)}>
               <Maximize2 color="white" size={16} />
             </TouchableOpacity>
           </View>
@@ -352,7 +429,7 @@ const TaviChat = ({
           
           <View style={styles.pipControls}>
             <TouchableOpacity onPress={toggleMute} style={styles.pipControlButton}>
-              {isMuted ? <MicOff color="white" size={14} /> : <Mic color="white" size={14} />}
+              {audioEnabled ? <Mic color="white" size={14} /> : <MicOff color="white" size={14} />}
             </TouchableOpacity>
             <TouchableOpacity onPress={leaveCall} style={[styles.pipControlButton, styles.pipEndButton]}>
               <X color="white" size={14} />
@@ -426,7 +503,7 @@ const TaviChat = ({
             <View style={styles.centerContainer}>
               <View style={[styles.avatarContainer, { backgroundColor: colors.background }]}>
                 <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.avatarText}>🤖</Text>
+                  <Dog color="green" size={50} />
                 </View>
                 <Text style={[styles.avatarLabel, { color: colors.text }]}>
                   Anna - AI Nurse Assistant
@@ -450,28 +527,35 @@ const TaviChat = ({
             </View>
           ) : (
             <View style={styles.videoContainer}>
-              {/* Video area - This would contain the actual Daily.co video component */}
-              <View style={[styles.videoBox, { backgroundColor: colors.background }]}>
-                <View style={styles.videoContent}>
-                  <View style={[styles.avatarVideo, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.avatarVideoText}>🤖</Text>
+              {renderAudioIndicator()}
+              {/* Debug info */}
+              <Text style={{ color: colors.text, position: 'absolute', top: 10, left: 10, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.5)', padding: 5 }}>
+                Participants: {participantCount} | Connected: {isConnected ? 'Yes' : 'No'}
+              </Text>
+
+              {/* Video participants */}
+              {Object.values(participants).map(renderParticipantVideo)}
+
+              {/* Fallback UI when no participants or no playable tracks */}
+              {(!participantCount || !Object.values(participants).some((p: any) => p.tracks?.video?.state === 'playable')) && (
+                <View style={[styles.videoBox, { backgroundColor: colors.background }]}>
+                  <View style={styles.videoContent}>
+                    <View style={[styles.avatarVideo, { backgroundColor: colors.primary }]}>
+                      <Dog color="green" size={50} />
+                    </View>
+                    <Text style={[styles.videoLabel, { color: colors.text }]}>
+                      {participantCount ? 'Connecting video...' : 'Waiting for Anna...'}
+                    </Text>
                   </View>
-                  <Text style={[styles.videoLabel, { color: colors.text }]}>
-                    {hasAvatarParticipant ? 'Anna is speaking...' : 'Waiting for Anna...'}
-                  </Text>
+                  
+                  <View style={styles.statusIndicatorContainer}>
+                    <View style={[styles.statusIndicator, { backgroundColor: '#F59E0B' }]} />
+                    <Text style={[styles.connectionStatus, { color: colors.textSecondary }]}>
+                      {participantCount ? 'Establishing connection...' : 'Connecting...'}
+                    </Text>
+                  </View>
                 </View>
-                
-                {/* Connection status indicator */}
-                <View style={styles.statusIndicatorContainer}>
-                  <View style={[
-                    styles.statusIndicator,
-                    { backgroundColor: hasAvatarParticipant ? '#10B981' : '#F59E0B' }
-                  ]} />
-                  <Text style={[styles.connectionStatus, { color: colors.textSecondary }]}>
-                    {hasAvatarParticipant ? 'Connected' : 'Connecting...'}
-                  </Text>
-                </View>
-              </View>
+              )}
             </View>
           )}
         </View>
@@ -483,11 +567,11 @@ const TaviChat = ({
               <TouchableOpacity
                 style={[
                   styles.controlButton,
-                  { backgroundColor: isMuted ? colors.error : colors.background }
+                  { backgroundColor: audioEnabled ? colors.background : colors.error }
                 ]}
                 onPress={toggleMute}
               >
-                {isMuted ? <MicOff color="white" size={24} /> : <Mic color={colors.text} size={24} />}
+                {audioEnabled ? <Mic color={colors.text} size={24} /> : <MicOff color="white" size={24} />}
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -787,6 +871,32 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
     marginTop: 4,
+  },
+  participantVideo: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+  },
+  audioIndicator: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 8,
+    borderRadius: 12,
+    zIndex: 100,
+  },
+  audioLevelBar: {
+    width: 3,
+    backgroundColor: '#4CAF50',
+    marginRight: 8,
+  },
+  audioStatus: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
   },
 });
 

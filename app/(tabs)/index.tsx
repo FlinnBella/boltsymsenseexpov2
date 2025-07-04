@@ -38,7 +38,7 @@ const formatAIResponse = (text: string): string => {
   
   // Replace **text** with bold formatting and add colon + newline after each bold section
   formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, (match, content) => {
-    return `**${content}**:\n`;
+    return `**${content}:**\n`;
   });
   
   return formattedText;
@@ -49,19 +49,19 @@ const FormattedText = ({ text, style }: { text: string; style: any }) => {
   const colors = useThemeColors();
   
   // Split text by bold patterns and newlines
-  const parts = text.split(/(\*\*.*?\*\*:|\n)/g);
+  const parts = text.split(/(\*\*.*?\*\*|\n)/g);
   
   return (
     <Text style={style}>
       {parts.map((part, index) => {
         if (part === '\n') {
           return '\n';
-        } else if (part.startsWith('**') && part.endsWith(':**')) {
-          // Bold text with colon
-          const boldContent = part.slice(2, -3); // Remove ** and :
+        } else if (part.startsWith('**') && part.endsWith('**')) {
+          // Bold text (may include colon)
+          const boldContent = part.slice(2, -2); // Remove ** markers
           return (
-            <Text key={index} style={{ fontWeight: 'bold', fontSize: 18, color: style.color }}>
-              {boldContent}:
+            <Text key={index} style={{ fontWeight: 'bold', fontSize: 20, color: style.color }}>
+              {boldContent}
             </Text>
           );
         } else {

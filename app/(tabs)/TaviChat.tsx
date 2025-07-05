@@ -133,26 +133,33 @@ const TaviChat = ({
   const createTavusConversation = useCallback(async () => {
     try {
       console.log('Creating Tavus conversation with API key:', apiKey);
-      setConnectionError(null);
+      setConnectionError(null); 
       
-      const response = await fetch('https://tavusapi.com/v2/conversations', {
+      // Updated request body with proper structure
+      const requestBody = {
+        replica_id: replicaId,
+        persona_id: personaId,
+        conversation_name: "Anna Nurse Chat",
+        conversational_context: "You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance.",
+        custom_greeting: "Hello! I'm Anna, your nurse assistant. How can I help you today?",
+        properties: {
+          max_call_duration: 1800, // 30 minutes
+          participant_left_timeout: 60,
+          participant_absent_timeout: 300,
+          enable_recording: false,
+          language: "english"
+        }
+      };
+
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+      const response = await fetch('https://tavusapi.com/v2/conversations', { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': apiKey,
         },
-        body: JSON.stringify({
-          replica_id: replicaId,
-          persona_id: personaId, 
-          conversational_context: "You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance.",
-          custom_greeting: "Hello! I'm Anna, your nurse assistant. How can I help you today?",
-          properties: {
-            max_call_duration: 60, // 5 minutes max for testing
-            participant_left_timeout: 60,
-            participant_absent_timeout: 300,
-            enable_recording: false,
-          }
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -165,6 +172,11 @@ const TaviChat = ({
       console.log('Tavus API response status:', response.status);
       const data = await response.json();
       console.log('Tavus conversation created:', data);
+      
+      if (!data.conversation_url) {
+        throw new Error('No conversation URL returned from Tavus API');
+      }
+      
       return data.conversation_url;
     } catch (error) {
       console.error('Error creating Tavus conversation:', error);
@@ -183,33 +195,39 @@ const TaviChat = ({
   // Initialize call
   const initializeCall = useCallback(() => {
     if (callObject && !isDestroyed) return callObject;
-    
+
     console.log('Initializing new Daily call object');
 
     const options: DailyFactoryOptions = {
       audioSource: true,
       videoSource: false, // Disable video to focus on audio
-      subscribeToTracksAutomatically: true,
+      subscribeToTracksAutomatically: true
     };
 
-    const newCallObject = Daily.createCallObject(options);
-    
-    // Set audio device
     try {
-      newCallObject.setAudioDevice('default');
+      const newCallObject = Daily.createCallObject(options);
+      
+      // Set audio device
+      try {
+        newCallObject.setAudioDevice('default');
+      } catch (error) {
+        console.error('Error setting audio device:', error);
+      }
+      
+      setCallObject(newCallObject);
+      setIsDestroyed(false);
+      return newCallObject;
     } catch (error) {
-      console.error('Error setting audio device:', error);
+      console.error('Error creating Daily call object:', error);
+      setConnectionError('Failed to initialize call');
+      return null;
     }
-    
-    setCallObject(newCallObject);
-    setIsDestroyed(false);
-    return newCallObject;
   }, [callObject, isDestroyed]);
 
   // Event handlers
   const handleJoinedMeeting = useCallback((event: any) => {
     console.log('Joined meeting:', event);
-    console.log('Local participant:', event.participants.local);
+    console.log('Local participant:', event?.participants?.local || 'No local participant data');
     
     setIsConnected(true);
     
@@ -235,19 +253,19 @@ const TaviChat = ({
 
   const handleParticipantJoined = useCallback((event: any) => {
     console.log('Participant joined event:', JSON.stringify(event, null, 2));
-    console.log('Participant audio track:', event.participant.tracks?.audio);
+    console.log('Participant audio track:', event?.participant?.tracks?.audio || 'No audio track');
     
     // Log detailed audio track information
-    if (event.participant.tracks?.audio) {
-      console.log('Audio track state:', event.participant.tracks.audio.state);
-      console.log('Audio track subscribed:', event.participant.tracks.audio.subscribed);
-      console.log('Audio track enabled:', event.participant.tracks.audio?.track?.enabled);
+    if (event?.participant?.tracks?.audio) {
+      console.log('Audio track state:', event?.participant?.tracks?.audio?.state);
+      console.log('Audio track subscribed:', event?.participant?.tracks?.audio?.subscribed);
+      console.log('Audio track enabled:', event?.participant?.tracks?.audio?.track?.enabled);
     }
     
     setParticipants((prev: any) => {
       const updated = {
         ...prev,
-        [event.participant.session_id]: event.participant,
+        [event?.participant?.session_id]: event?.participant,
       };
       return updated;
     });
@@ -400,20 +418,20 @@ const TaviChat = ({
   const joinCall = useCallback(async () => {
     if (isLoading || isConnected) return;
     
-    // Check audio permissions first
-    console.log('Checking audio permissions before joining call');
-    if (!hasAudioPermission) {
-      const granted = await requestAudioPermissions();
-      if (!granted) {
-        Alert.alert('Permission Required', 'Microphone permission is required for video calls.');
-        return;
-      }
-    }
-
-    setIsLoading(true);
-    setConnectionError(null);
-
     try {
+      // Check audio permissions first
+      console.log('Checking audio permissions before joining call');
+      if (!hasAudioPermission) {
+        const granted = await requestAudioPermissions();
+        if (!granted) {
+          Alert.alert('Permission Required', 'Microphone permission is required for video calls.');
+          return;
+        }
+      }
+  
+      setIsLoading(true);
+      setConnectionError(null);
+  
       // Create Tavus conversation for the AI avatar
       console.log('Creating Tavus conversation...');
       const tavusUrl = await createTavusConversation();
@@ -426,6 +444,10 @@ const TaviChat = ({
       console.log('Tavus conversation URL:', tavusUrl);
       const call = initializeCall();
       
+      if (!call) {
+        throw new Error('Failed to initialize call object');
+      }
+      
       // Configure audio settings before joining
       try {
         console.log('Setting up local audio before joining...');
@@ -436,9 +458,13 @@ const TaviChat = ({
       } catch (error) {
         console.error('Error setting local media:', error);
         // Continue anyway, as this might not be fatal
+        console.log('Continuing despite local media error');
       }
       
-      await call.join({ url: tavusUrl });
+      console.log('Joining call with URL:', tavusUrl);
+      const joinOptions = { url: tavusUrl };
+      await call.join(joinOptions);
+      console.log('Join call initiated successfully');
     } catch (error) {
       console.error('Error joining call:', error);
       setIsLoading(false);

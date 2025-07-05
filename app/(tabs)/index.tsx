@@ -301,8 +301,18 @@ export default function AIScreen() {
       <KeyboardAvoidingView
         style={styles.chatContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 120 : 0}
       >
+        {/* Video Chat Button - Floating above input */}
+        <TouchableOpacity
+          style={[styles.videoCallButton, { backgroundColor: colors.primary }]}
+          onPress={() => setIsTaviModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Play color="white" size={20} />
+          <Text style={styles.videoCallButtonText}>Start a video chat</Text>
+        </TouchableOpacity>
+        
         <ScrollView
           ref={scrollViewRef}
           style={styles.messagesContainer}
@@ -373,16 +383,6 @@ export default function AIScreen() {
                 styles.sendButton,
                 { backgroundColor: (!inputText.trim() || isLoading) ? colors.textSecondary : colors.primary }
               ]}
-              onPress={sendMessage}
-              disabled={!inputText.trim() || isLoading}
-              activeOpacity={0.6}
-            >
-              <Send color="white" size={18} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-
       {/* Disclaimer */}
       {!showNewChatButton && (
         <View style={[styles.disclaimer, { backgroundColor: 'transparent', borderTopColor: 'transparent' }]}>
@@ -444,8 +444,8 @@ const styles = StyleSheet.create({
   },
   videoCallButton: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    bottom: 80,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

@@ -101,7 +101,7 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading ? styles.buttonDisabled : null]}
+              style={[styles.button, loading ? styles.buttonDisabled : null, styles.glowButton]}
               onPress={handleLogin}
               disabled={loading}
             >
@@ -206,14 +206,30 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#F97316',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)', 
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.7,
+    shadowOpacity: 0.2,
+    elevation: 2,
+  },
+  glowButton: {
+    backgroundColor: '#F97316',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   buttonText: {
     fontSize: 16,
@@ -244,19 +260,26 @@ const styles = StyleSheet.create({
   socialButton: {
     flex: 1,
     borderRadius: 48,
-    height: 50,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   googleButton: {
     backgroundColor: 'rgba(201, 37, 37, 0.93)',
-
+    shadowColor: 'rgba(201, 37, 37, 0.5)',
   },
   facebookButton: {
     backgroundColor: 'rgba(21, 128, 201, 0.93)',
- 
+    shadowColor: 'rgba(21, 128, 201, 0.5)',
   },
   socialButtonDisabled: {
     opacity: 0.5,

@@ -103,6 +103,7 @@ export interface AuthState {
 export interface EnhancedFoodLog extends FoodLog {
   calories?: number;
   portion_size?: string;
+  notes?: string;
 }
 
 interface UserStore {
@@ -119,6 +120,11 @@ interface UserStore {
   symptoms: SymptomLog[];
   foodLogs: EnhancedFoodLog[];
   
+  // Additional health metrics for comprehensive tracking
+  waterIntake: number;
+  mood: number; // 1-10 scale
+  energyLevel: number; // 1-10 scale
+  
   // Loading states
   isLoadingProfile: boolean;
   isLoadingHealthData: boolean;
@@ -126,6 +132,11 @@ interface UserStore {
   isLoadingMedications: boolean;
   isLoadingSymptoms: boolean;
   isLoadingFoodLogs: boolean;
+  
+  // Error states for better error handling
+  profileError: string | null;
+  healthDataError: string | null;
+  preferencesError: string | null;
   
   // Actions
   setAuth: (auth: Partial<AuthState>) => void;
@@ -152,6 +163,11 @@ interface UserStore {
   fetchSymptoms: () => Promise<void>;
   fetchFoodLogs: () => Promise<void>;
   initializeUserData: () => Promise<void>;
+  
+  // Additional health tracking actions
+  updateWaterIntake: (amount: number) => Promise<void>;
+  updateMood: (mood: number) => Promise<void>;
+  updateEnergyLevel: (energy: number) => Promise<void>;
   
   // Utility actions
   clearUserData: () => void;
@@ -212,6 +228,11 @@ export const useUserStore = create<UserStore>()(
       symptoms: [],
       foodLogs: [],
       
+      // Additional health metrics
+      waterIntake: 0,
+      mood: 5,
+      energyLevel: 5,
+      
       // Loading states
       isLoadingProfile: false,
       isLoadingHealthData: false,
@@ -219,6 +240,11 @@ export const useUserStore = create<UserStore>()(
       isLoadingMedications: false,
       isLoadingSymptoms: false,
       isLoadingFoodLogs: false,
+      
+      // Error states
+      profileError: null,
+      healthDataError: null,
+      preferencesError: null,
 
       // Auth actions
       setAuth: (auth) => set((state) => ({ 
@@ -253,6 +279,7 @@ export const useUserStore = create<UserStore>()(
           }));
         } catch (error) {
           console.error('Error updating user profile:', error);
+          set({ profileError: error instanceof Error ? error.message : 'Failed to update profile' });
           throw error;
         } finally {
           set({ isLoadingProfile: false });
@@ -300,6 +327,7 @@ export const useUserStore = create<UserStore>()(
           }));
         } catch (error) {
           console.error('Error updating health data:', error);
+          set({ healthDataError: error instanceof Error ? error.message : 'Failed to update health data' });
           throw error;
         } finally {
           set({ isLoadingHealthData: false });
@@ -347,6 +375,7 @@ export const useUserStore = create<UserStore>()(
           }));
         } catch (error) {
           console.error('Error updating preferences:', error);
+          set({ preferencesError: error instanceof Error ? error.message : 'Failed to update preferences' });
           throw error;
         } finally {
           set({ isLoadingPreferences: false });
@@ -658,6 +687,7 @@ export const useUserStore = create<UserStore>()(
           set({ userProfile, isLoadingProfile: false });
         } catch (error) {
           console.error('Error fetching user profile:', error);
+          set({ profileError: error instanceof Error ? error.message : 'Failed to fetch profile' });
           set({ isLoadingProfile: false });
         }
       },
@@ -709,6 +739,7 @@ export const useUserStore = create<UserStore>()(
           }
         } catch (error) {
           console.error('Error fetching health data:', error);
+          set({ healthDataError: error instanceof Error ? error.message : 'Failed to fetch health data' });
           set({ isLoadingHealthData: false });
         }
       },
@@ -747,6 +778,7 @@ export const useUserStore = create<UserStore>()(
           }
         } catch (error) {
           console.error('Error fetching preferences:', error);
+          set({ preferencesError: error instanceof Error ? error.message : 'Failed to fetch preferences' });
           set({ isLoadingPreferences: false });
         }
       },
@@ -826,6 +858,43 @@ export const useUserStore = create<UserStore>()(
         }
       },
 
+      // Additional health tracking actions
+      updateWaterIntake: async (amount: number) => {
+        const { userProfile } = get();
+        if (!userProfile) return;
+
+        try {
+          set({ waterIntake: amount });
+          // In a real implementation, you would sync this to the database
+        } catch (error) {
+          console.error('Error updating water intake:', error);
+        }
+      },
+
+      updateMood: async (mood: number) => {
+        const { userProfile } = get();
+        if (!userProfile) return;
+
+        try {
+          set({ mood });
+          // In a real implementation, you would sync this to the database
+        } catch (error) {
+          console.error('Error updating mood:', error);
+        }
+      },
+
+      updateEnergyLevel: async (energy: number) => {
+        const { userProfile } = get();
+        if (!userProfile) return;
+
+        try {
+          set({ energyLevel: energy });
+          // In a real implementation, you would sync this to the database
+        } catch (error) {
+          console.error('Error updating energy level:', error);
+        }
+      },
+
       initializeUserData: async () => {
         const store = get();
         try {
@@ -857,12 +926,18 @@ export const useUserStore = create<UserStore>()(
         medications: [],
         symptoms: [],
         foodLogs: [],
+        waterIntake: 0,
+        mood: 5,
+        energyLevel: 5,
         isLoadingProfile: false,
         isLoadingHealthData: false,
         isLoadingPreferences: false,
         isLoadingMedications: false,
         isLoadingSymptoms: false,
         isLoadingFoodLogs: false,
+        profileError: null,
+        healthDataError: null,
+        preferencesError: null,
       }),
 
       reset: () => set({
@@ -873,12 +948,18 @@ export const useUserStore = create<UserStore>()(
         medications: [],
         symptoms: [],
         foodLogs: [],
+        waterIntake: 0,
+        mood: 5,
+        energyLevel: 5,
         isLoadingProfile: false,
         isLoadingHealthData: false,
         isLoadingPreferences: false,
         isLoadingMedications: false,
         isLoadingSymptoms: false,
         isLoadingFoodLogs: false,
+        profileError: null,
+        healthDataError: null,
+        preferencesError: null,
       }),
     }),
     {
@@ -916,3 +997,13 @@ export const useIsLoadingPreferences = () => useUserStore((state) => state.isLoa
 export const useIsLoadingMedications = () => useUserStore((state) => state.isLoadingMedications);
 export const useIsLoadingSymptoms = () => useUserStore((state) => state.isLoadingSymptoms);
 export const useIsLoadingFoodLogs = () => useUserStore((state) => state.isLoadingFoodLogs);
+
+// Error state selectors
+export const useProfileError = () => useUserStore((state) => state.profileError);
+export const useHealthDataError = () => useUserStore((state) => state.healthDataError);
+export const usePreferencesError = () => useUserStore((state) => state.preferencesError);
+
+// Additional health metrics selectors
+export const useWaterIntake = () => useUserStore((state) => state.waterIntake);
+export const useMood = () => useUserStore((state) => state.mood);
+export const useEnergyLevel = () => useUserStore((state) => state.energyLevel);

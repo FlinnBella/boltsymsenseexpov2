@@ -11,7 +11,7 @@ import {
   PanResponder,
   Animated,
 } from 'react-native';
-import { X, Minimize2, Maximize2, Mic, MicOff, Dog, User } from 'lucide-react-native';
+import { X, Minimize2, Maximize2, Mic, MicOff, Dog, User, Play } from 'lucide-react-native';
 import Daily, { DailyMediaView, DailyFactoryOptions } from '@daily-co/react-native-daily-js';
 import { useThemeColors } from '@/stores/useThemeStore';
 
@@ -29,7 +29,7 @@ const TaviChat = ({
   visible,
   onClose,
   apiKey = 'c2744af3a2c248eeac535b51939a04db',
-  replicaId = 'r6ae5b6efc9d',
+  replicaId = 'r43127e64d25a',
   personaId = 'p58cee6131cc',
 }: TaviChatProps) => {
   const colors = useThemeColors();
@@ -146,23 +146,12 @@ const TaviChat = ({
           persona_id: personaId, 
           conversational_context: "You are Anna, a helpful nurse assistant. You provide caring and professional medical guidance.",
           custom_greeting: "Hello! I'm Anna, your nurse assistant. How can I help you today?",
-          enable_audio: true, // Explicitly enable audio
           properties: {
-            max_call_duration: 300, // 5 minutes max for testing
+            max_call_duration: 60, // 5 minutes max for testing
             participant_left_timeout: 60,
             participant_absent_timeout: 300,
-            enable_audio: true, // Redundant but explicit
-            audio_only: true, // Force audio-only mode
-            enable_video: false, // Disable video
             enable_recording: false,
-            language: "english"
-          },
-          audio_settings: {
-            input_enabled: true,
-            output_enabled: true,
-          },
-          conversation_name: "Anna Nurse Chat",
-          conversation_type: "audio"
+          }
         }),
       });
 
@@ -201,9 +190,6 @@ const TaviChat = ({
       audioSource: true,
       videoSource: false, // Disable video to focus on audio
       subscribeToTracksAutomatically: true,
-      dailyConfig: {
-        camSimulcastEncodings: [] // Keep only supported option
-      }
     };
 
     const newCallObject = Daily.createCallObject(options);
@@ -776,7 +762,7 @@ const TaviChat = ({
                   <User color="white" size={50} />
                 </View>
                 <Text style={[styles.avatarLabel, { color: colors.text }]}>
-                  Anna - AI Nurse Assistant
+                  Anna - Nurse Assistant
                 </Text>
               </View>
               

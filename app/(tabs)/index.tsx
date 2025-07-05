@@ -11,12 +11,13 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, User, Loader, Plus, Play } from 'lucide-react-native';
+import { Send, User, Loader, Plus, Play, Dog } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInRight, FadeOutDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useUserProfile, useMedications, useSymptoms, useFoodLogs } from '@/stores/useUserStore';
 import { useThemeColors } from '@/stores/useThemeStore';
 import TaviChat from './TaviChat';
+import Markdown from 'react-native-markdown-display';
 
 // Webhook URL for AI communication
 const WEBHOOK_URL = 'https://evandickinson.app.n8n.cloud/webhook/326bdedd-f7e9-41c8-a402-ca245cd19d0a';
@@ -38,7 +39,7 @@ const formatAIResponse = (text: string): string => {
   
   // Replace **text** with bold formatting and add colon + newline after each bold section
   formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, (match, content) => {
-    return `**${content}**:\n`;
+    return `**${content}**`;
   });
   
   return formattedText;
@@ -92,7 +93,7 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
           {message.isUser ? (
             <User color="white" size={16} />
           ) : (
-            <User color="white" size={16} />
+            <Dog color="green" size={16} />
           )}
         </View>
         <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
@@ -114,10 +115,8 @@ const MessageBubble = React.memo(({ message, colors }: { message: ChatMessage; c
           styles.aiMessageText, 
           { backgroundColor: colors.background }
         ]}>
-          <FormattedText 
-            text={formattedText} 
-            style={{ color: colors.text, fontSize: 16, fontFamily: 'Inter-Regular', lineHeight: 22 }}
-          />
+          {/* Render Markdown separately from FormattedText */}
+          <Markdown>{formattedText}</Markdown>
         </View>
       )}
     </Animated.View>
@@ -139,7 +138,7 @@ const InitialChatPlaceholder = ({ onFirstMessage, colors }: { onFirstMessage: ()
       style={styles.placeholderContainer}
     >
       <View style={[styles.placeholderIcon, { backgroundColor: colors.primary + '20' }]}>
-        <User color={colors.primary} size={48} />
+        <Dog color={colors.primary} size={48} />
       </View>
       <Text style={[styles.placeholderTitle, { color: colors.text }]}>Chat with SymSense AI</Text>
       <Text style={[styles.placeholderSubtitle, { color: colors.textSecondary }]}>
@@ -321,7 +320,7 @@ export default function AIScreen() {
               </View>
               <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
                 <Loader color={colors.textSecondary} size={16} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Anna is thinking...</Text>
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>SymSenseAI is thinking...</Text>
               </View>
             </Animated.View>
           )}

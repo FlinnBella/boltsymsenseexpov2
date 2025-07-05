@@ -289,6 +289,16 @@ export default function AIScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       {/* Messages */}
+      {/* Video Chat Button - Floating above input */}
+      <TouchableOpacity
+        style={[styles.videoCallButton, { backgroundColor: colors.primary }]}
+        onPress={() => setIsTaviModalVisible(true)}
+        activeOpacity={0.7}
+      >
+        <Play color="white" size={20} />
+        <Text style={styles.videoCallButtonText}>Start a video chat</Text>
+      </TouchableOpacity>
+      
       <KeyboardAvoidingView
         style={styles.chatContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -356,27 +366,20 @@ export default function AIScreen() {
               multiline
               maxLength={500}
               editable={!isLoading}
+              returnKeyType="send"
+              onSubmitEditing={sendMessage}
             />
-            <View style={styles.buttonsContainer}>
-            <TouchableOpacity
-              style={[styles.sendButton, { backgroundColor: 'white' }]}
-              onPress={() => setIsTaviModalVisible(true)} 
-              activeOpacity={0.6}
-            >
-              <Play color="black" size={18} />
-            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                { backgroundColor: 'white'  }
+                { backgroundColor: (!inputText.trim() || isLoading) ? colors.textSecondary : colors.primary }
               ]}
               onPress={sendMessage}
               disabled={!inputText.trim() || isLoading}
               activeOpacity={0.6}
             >
-              <Send color="black" size={18} />
+              <Send color="white" size={18} />
             </TouchableOpacity>
-            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -439,6 +442,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  videoCallButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    zIndex: 100,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  videoCallButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: 'white',
   },
   messageBubble: {
     marginBottom: 16,
@@ -535,14 +560,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     lineHeight: 20,
   },
-  sendButton: {
+  sendButton: { 
     width: 32,
     height: 32,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'black',
   },
   disclaimer: {
     paddingHorizontal: 20,
@@ -555,9 +578,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     color: 'gray',
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-    gap: 4,
   },
 });

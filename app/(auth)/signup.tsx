@@ -581,7 +581,8 @@ export default function SignupScreen() {
                 style={[
                   styles.button,
                   activeStep > 1 ? styles.buttonHalf : styles.buttonFull,
-                  (isNextDisabled() || loading) && styles.buttonDisabled
+                  (isNextDisabled() || loading) && styles.buttonDisabled,
+                  styles.glowButton
                 ]}
                 onPress={handleNext}
                 disabled={isNextDisabled() || loading}
@@ -822,9 +823,16 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#F97316',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)', 
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   buttonFull: {
     flex: 1,
@@ -833,7 +841,16 @@ const styles = StyleSheet.create({
     flex: 2,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.7,
+    shadowOpacity: 0.2,
+    elevation: 2,
+  },
+  glowButton: {
+    backgroundColor: '#F97316',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
   buttonText: {
     fontSize: 16,
